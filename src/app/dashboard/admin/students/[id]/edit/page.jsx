@@ -17,7 +17,7 @@ import {
     FaPen,
     FaMicrophone,
 } from "react-icons/fa";
-import { studentsAPI, questionSetsAPI } from "@/lib/api";
+import { studentsAPI, listeningAPI, readingAPI, writingAPI, speakingAPI } from "@/lib/api";
 
 export default function EditStudentPage() {
     const params = useParams();
@@ -94,10 +94,10 @@ export default function EditStudentPage() {
     const fetchQuestionSets = async () => {
         try {
             const [listeningRes, readingRes, writingRes, speakingRes] = await Promise.all([
-                questionSetsAPI.getSummary("LISTENING").catch(() => ({ data: [] })),
-                questionSetsAPI.getSummary("READING").catch(() => ({ data: [] })),
-                questionSetsAPI.getSummary("WRITING").catch(() => ({ data: [] })),
-                questionSetsAPI.getSummary("SPEAKING").catch(() => ({ data: [] })),
+                listeningAPI.getSummary().catch(() => ({ data: [] })),
+                readingAPI.getSummary().catch(() => ({ data: [] })),
+                writingAPI.getSummary().catch(() => ({ data: [] })),
+                speakingAPI.getSummary().catch(() => ({ data: [] })),
             ]);
 
             setListeningSets(listeningRes.data || []);
@@ -336,11 +336,14 @@ export default function EditStudentPage() {
                 {/* Question Sets Assignment */}
                 <div className="bg-white rounded-xl border border-gray-200 p-6">
                     <h3 className="font-semibold text-gray-800 mb-4">Assigned Question Sets</h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                        All question set fields are <strong>optional</strong> — leave as "Not Assigned" if not needed.
+                    </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 <FaHeadphones className="inline mr-1 text-purple-500" />
-                                Listening Set
+                                Listening Set <span className="text-xs text-gray-400 font-normal">(optional)</span>
                             </label>
                             <select
                                 name="listeningSetNumber"
@@ -350,8 +353,8 @@ export default function EditStudentPage() {
                             >
                                 <option value="">Not Assigned</option>
                                 {listeningSets.map((set) => (
-                                    <option key={set._id || set.setId} value={set.setNumber}>
-                                        Set #{set.setNumber} - {set.title}
+                                    <option key={set._id || set.testId} value={set.testNumber}>
+                                        Test #{set.testNumber} - {set.title}
                                     </option>
                                 ))}
                             </select>
@@ -359,7 +362,7 @@ export default function EditStudentPage() {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 <FaBook className="inline mr-1 text-blue-500" />
-                                Reading Set
+                                Reading Set <span className="text-xs text-gray-400 font-normal">(optional)</span>
                             </label>
                             <select
                                 name="readingSetNumber"
@@ -369,8 +372,8 @@ export default function EditStudentPage() {
                             >
                                 <option value="">Not Assigned</option>
                                 {readingSets.map((set) => (
-                                    <option key={set._id || set.setId} value={set.setNumber}>
-                                        Set #{set.setNumber} - {set.title}
+                                    <option key={set._id || set.testId} value={set.testNumber}>
+                                        Test #{set.testNumber} - {set.title}
                                     </option>
                                 ))}
                             </select>
@@ -378,7 +381,7 @@ export default function EditStudentPage() {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 <FaPen className="inline mr-1 text-green-500" />
-                                Writing Set
+                                Writing Set <span className="text-xs text-gray-400 font-normal">(optional)</span>
                             </label>
                             <select
                                 name="writingSetNumber"
@@ -388,34 +391,31 @@ export default function EditStudentPage() {
                             >
                                 <option value="">Not Assigned</option>
                                 {writingSets.map((set) => (
-                                    <option key={set._id || set.setId} value={set.setNumber}>
-                                        Set #{set.setNumber} - {set.title}
+                                    <option key={set._id || set.testId} value={set.testNumber}>
+                                        Test #{set.testNumber} - {set.title}
                                     </option>
                                 ))}
                             </select>
                         </div>
-                        {/* Speaking Set selection hidden */}
-                        {false && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    <FaMicrophone className="inline mr-1 text-orange-500" />
-                                    Speaking Set
-                                </label>
-                                <select
-                                    name="speakingSetNumber"
-                                    value={formData.speakingSetNumber}
-                                    onChange={handleInputChange}
-                                    className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:border-cyan-500"
-                                >
-                                    <option value="">Not Assigned</option>
-                                    {speakingSets.map((set) => (
-                                        <option key={set._id || set.setId} value={set.setNumber}>
-                                            Set #{set.setNumber} - {set.title}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <FaMicrophone className="inline mr-1 text-orange-500" />
+                                Speaking Set <span className="text-xs text-gray-400 font-normal">(optional)</span>
+                            </label>
+                            <select
+                                name="speakingSetNumber"
+                                value={formData.speakingSetNumber}
+                                onChange={handleInputChange}
+                                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:border-cyan-500"
+                            >
+                                <option value="">Not Assigned</option>
+                                {speakingSets.map((set) => (
+                                    <option key={set._id || set.testId} value={set.testNumber}>
+                                        Test #{set.testNumber} - {set.title}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </div>
 

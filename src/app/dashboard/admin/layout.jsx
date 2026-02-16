@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
     FaHome,
     FaUsers,
-    FaQuestionCircle,
     FaChartBar,
     FaCog,
     FaSignOutAlt,
@@ -16,7 +15,6 @@ import {
     FaHeadphones,
     FaBook,
     FaPen,
-    FaFolderOpen,
     FaSearch,
     FaBell,
     FaGlobe,
@@ -38,16 +36,24 @@ const menuItems = [
         badge: "New",
     },
     {
-        title: "Question Sets",
-        icon: FaQuestionCircle,
-        href: "/dashboard/admin/question-sets",
-        submenu: [
-            { title: "All Sets", icon: FaFolderOpen, href: "/dashboard/admin/question-sets", type: null },
-            { title: "Listening Sets", icon: FaHeadphones, href: "/dashboard/admin/question-sets?type=LISTENING", type: "LISTENING" },
-            { title: "Reading Sets", icon: FaBook, href: "/dashboard/admin/question-sets?type=READING", type: "READING" },
-            { title: "Writing Sets", icon: FaPen, href: "/dashboard/admin/question-sets?type=WRITING", type: "WRITING" },
-            { title: "Speaking Sets", icon: FaMicrophone, href: "/dashboard/admin/question-sets?type=SPEAKING", type: "SPEAKING" },
-        ],
+        title: "Listening",
+        icon: FaHeadphones,
+        href: "/dashboard/admin/listening",
+    },
+    {
+        title: "Reading",
+        icon: FaBook,
+        href: "/dashboard/admin/reading",
+    },
+    {
+        title: "Writing",
+        icon: FaPen,
+        href: "/dashboard/admin/writing",
+    },
+    {
+        title: "Speaking",
+        icon: FaMicrophone,
+        href: "/dashboard/admin/speaking",
     },
     {
         title: "Exam Results",
@@ -112,12 +118,6 @@ function AdminLayoutContent({ children }) {
             router.replace("/login");
         }
     }, [isLoginPage]);
-
-    useEffect(() => {
-        if (pathname.includes("/question-sets")) {
-            setExpandedMenu("Question Sets");
-        }
-    }, [pathname]);
 
     const handleLogout = () => {
         localStorage.removeItem("adminAuth");

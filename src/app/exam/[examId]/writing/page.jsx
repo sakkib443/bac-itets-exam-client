@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
     FaPen,
@@ -11,11 +11,197 @@ import {
     FaChevronRight,
     FaSpinner,
     FaPlay,
-    FaArrowRight
+    FaArrowRight,
+    FaSearchPlus,
+    FaSearchMinus,
+    FaUndo,
 } from "react-icons/fa";
-import { questionSetsAPI, studentsAPI } from "@/lib/api";
+import { writingAPI, studentsAPI } from "@/lib/api";
 import ExamSecurity from "@/components/ExamSecurity";
 import TextHighlighter from "@/components/TextHighlighter";
+
+// ==================== Image Zoom/Pan Viewer Component ====================
+const ImageZoomViewer = ({ imageUrl }) => {
+    const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    const containerRef = useRef(null);
+
+    const MIN_ZOOM = 0.5;
+    const MAX_ZOOM = 5;
+    const ZOOM_STEP = 0.3;
+
+    const handleZoomIn = useCallback(() => {
+        setZoom(prev => Math.min(prev + ZOOM_STEP, MAX_ZOOM));
+    }, []);
+
+    const handleZoomOut = useCallback(() => {
+        setZoom(prev => {
+            const newZoom = Math.max(prev - ZOOM_STEP, MIN_ZOOM);
+            // Reset pan if zooming back to fit
+            if (newZoom <= 1) setPan({ x: 0, y: 0 });
+            return newZoom;
+        });
+    }, []);
+
+    const handleReset = useCallback(() => {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+    }, []);
+
+    // Mouse wheel zoom
+    const handleWheel = useCallback((e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.deltaY < 0) {
+            setZoom(prev => Math.min(prev + 0.15, MAX_ZOOM));
+        } else {
+            setZoom(prev => {
+                const newZoom = Math.max(prev - 0.15, MIN_ZOOM);
+                if (newZoom <= 1) setPan({ x: 0, y: 0 });
+                return newZoom;
+            });
+        }
+    }, []);
+
+    // Attach wheel listener with passive: false
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        el.addEventListener("wheel", handleWheel, { passive: false });
+        return () => el.removeEventListener("wheel", handleWheel);
+    }, [handleWheel]);
+
+    // Click and drag to pan
+    const handleMouseDown = useCallback((e) => {
+        if (zoom <= 1) return; // No panning at default zoom
+        e.preventDefault();
+        setIsDragging(true);
+        setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }, [zoom, pan]);
+
+    const handleMouseMove = useCallback((e) => {
+        if (!isDragging) return;
+        setPan({
+            x: e.clientX - dragStart.x,
+            y: e.clientY - dragStart.y,
+        });
+    }, [isDragging, dragStart]);
+
+    const handleMouseUp = useCallback(() => {
+        setIsDragging(false);
+    }, []);
+
+    useEffect(() => {
+        if (isDragging) {
+            window.addEventListener("mousemove", handleMouseMove);
+            window.addEventListener("mouseup", handleMouseUp);
+            return () => {
+                window.removeEventListener("mousemove", handleMouseMove);
+                window.removeEventListener("mouseup", handleMouseUp);
+            };
+        }
+    }, [isDragging, handleMouseMove, handleMouseUp]);
+
+    // Touch support for mobile drag
+    const handleTouchStart = useCallback((e) => {
+        if (zoom <= 1) return;
+        const touch = e.touches[0];
+        setIsDragging(true);
+        setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+    }, [zoom, pan]);
+
+    const handleTouchMove = useCallback((e) => {
+        if (!isDragging) return;
+        const touch = e.touches[0];
+        setPan({
+            x: touch.clientX - dragStart.x,
+            y: touch.clientY - dragStart.y,
+        });
+    }, [isDragging, dragStart]);
+
+    const handleTouchEnd = useCallback(() => {
+        setIsDragging(false);
+    }, []);
+
+    // Double click to reset
+    const handleDoubleClick = useCallback(() => {
+        handleReset();
+    }, [handleReset]);
+
+    const zoomPercent = Math.round(zoom * 100);
+
+    return (
+        <div className="bg-gray-50 border border-gray-200 rounded p-3 mt-4">
+            {/* Header with controls */}
+            <div className="flex items-center justify-between mb-2">
+                <p className="text-gray-600 text-sm font-medium">📊 Reference Image:</p>
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={handleZoomOut}
+                        className="w-7 h-7 flex items-center justify-center rounded bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-green-600 transition-colors cursor-pointer"
+                        title="Zoom Out"
+                    >
+                        <FaSearchMinus className="text-xs" />
+                    </button>
+                    <span className="text-xs text-gray-500 font-mono w-10 text-center">{zoomPercent}%</span>
+                    <button
+                        onClick={handleZoomIn}
+                        className="w-7 h-7 flex items-center justify-center rounded bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-green-600 transition-colors cursor-pointer"
+                        title="Zoom In"
+                    >
+                        <FaSearchPlus className="text-xs" />
+                    </button>
+                    <button
+                        onClick={handleReset}
+                        className="w-7 h-7 flex items-center justify-center rounded bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-green-600 transition-colors cursor-pointer ml-1"
+                        title="Reset View"
+                    >
+                        <FaUndo className="text-xs" />
+                    </button>
+                </div>
+            </div>
+
+            {/* Image container with zoom/pan */}
+            <div
+                ref={containerRef}
+                className="bg-white rounded border border-gray-100 overflow-hidden relative"
+                style={{
+                    maxHeight: "450px",
+                    cursor: zoom > 1 ? (isDragging ? "grabbing" : "grab") : "zoom-in",
+                    userSelect: "none",
+                    touchAction: "none",
+                }}
+                onMouseDown={handleMouseDown}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onDoubleClick={handleDoubleClick}
+            >
+                <img
+                    src={imageUrl}
+                    alt="Task reference - Map/Graph/Chart"
+                    className="w-full"
+                    draggable={false}
+                    style={{
+                        transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                        transformOrigin: "center center",
+                        transition: isDragging ? "none" : "transform 0.2s ease-out",
+                        maxHeight: zoom <= 1 ? "450px" : "none",
+                        objectFit: "contain",
+                        pointerEvents: "none",
+                    }}
+                />
+            </div>
+
+            {/* Helper text */}
+            <p className="text-gray-400 text-xs mt-2 text-center">
+                Scroll to zoom • Drag to pan • Double-click to reset
+            </p>
+        </div>
+    );
+};
 
 export default function WritingExamPage() {
     const params = useParams();
@@ -85,13 +271,13 @@ export default function WritingExamPage() {
                 }
 
                 // Fetch question set from backend
-                const response = await questionSetsAPI.getForExam("WRITING", writingSetNumber);
+                const response = await writingAPI.getForExam(writingSetNumber);
 
                 if (response.success && response.data) {
                     setQuestionSet(response.data);
                     // Initialize answers for each task
                     const initialAnswers = {};
-                    (response.data.writingTasks || []).forEach((task, index) => {
+                    (response.data.tasks || []).forEach((task, index) => {
                         initialAnswers[`task${index + 1}`] = "";
                     });
                     setAnswers(initialAnswers);
@@ -110,7 +296,7 @@ export default function WritingExamPage() {
     }, [params.examId]);
 
     // Build tasks from question set
-    const tasks = (questionSet?.writingTasks || []).map((task, index) => {
+    const tasks = (questionSet?.tasks || []).map((task, index) => {
         // Determine if this is Task 1 (can be task1-academic, task1-gt, or taskNumber===1)
         const isTask1 = task.taskNumber === 1 || task.taskType?.startsWith("task1");
 
@@ -120,8 +306,8 @@ export default function WritingExamPage() {
             title: `Task ${task.taskNumber || index + 1}`,
             subtitle: isTask1 ? "Academic Report" : "Essay",
             timeRecommend: isTask1 ? 20 : 40, // Task 1 = 20 mins, Task 2 = 40 mins
-            instruction: task.prompt || "",
-            imageUrl: task.imageUrl || null,
+            instruction: task.prompt || task.instructions || "",
+            imageUrl: task.images?.[0]?.url || null,
             minWords: task.minWords || (isTask1 ? 150 : 250)
         };
     });
@@ -359,7 +545,7 @@ export default function WritingExamPage() {
 
             {/* Header */}
             <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 py-2">
+                <div className="px-6 py-2">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <span className="text-green-600 font-bold text-xl">IELTS</span>
@@ -387,8 +573,8 @@ export default function WritingExamPage() {
             </header>
 
             {/* Task Tabs */}
-            <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
-                <div className="max-w-7xl mx-auto flex gap-4">
+            <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
+                <div className="flex gap-4">
                     {displayTasks.map((task, index) => {
                         const taskWordCount = answers[task.id]?.trim().split(/\s+/).filter(Boolean).length || 0;
                         const taskMeetsMin = taskWordCount >= task.minWords;
@@ -421,11 +607,11 @@ export default function WritingExamPage() {
             </div>
 
             {/* Main Content */}
-            <div className="max-w-7xl mx-auto px-4 py-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="px-6 py-4 flex-1">
+                <div className="flex gap-6 h-[calc(100vh-200px)]">
                     {/* Instructions Panel */}
-                    <div className="lg:col-span-1">
-                        <div className="bg-white border border-gray-200 rounded p-5">
+                    <div className="flex-1 min-w-0">
+                        <div className="bg-white border border-gray-200 rounded p-5 h-full overflow-y-auto">
                             <TextHighlighter passageId={`writing_task_${currentTask}`}>
                                 <div className="mb-4">
                                     <span className="bg-green-100 text-green-700 px-3 py-1 rounded text-sm font-medium">
@@ -438,37 +624,15 @@ export default function WritingExamPage() {
                                 </div>
 
                                 {currentTaskData?.imageUrl && (
-                                    <div className="bg-gray-50 border border-gray-200 rounded p-3 mt-4">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <p className="text-gray-600 text-sm font-medium">📊 Reference Image:</p>
-                                            <button
-                                                onClick={() => window.open(currentTaskData.imageUrl, '_blank')}
-                                                className="text-xs text-green-600 hover:underline cursor-pointer"
-                                            >
-                                                View Full Size ↗
-                                            </button>
-                                        </div>
-                                        <div className="bg-white p-2 rounded border border-gray-100">
-                                            <img
-                                                src={currentTaskData.imageUrl}
-                                                alt="Task reference - Map/Graph/Chart"
-                                                className="w-full rounded cursor-zoom-in hover:opacity-90 transition-opacity"
-                                                style={{ maxHeight: '400px', objectFit: 'contain' }}
-                                                onClick={() => window.open(currentTaskData.imageUrl, '_blank')}
-                                            />
-                                        </div>
-                                        <p className="text-gray-400 text-xs mt-2 text-center">
-                                            Click image to view in full size
-                                        </p>
-                                    </div>
+                                    <ImageZoomViewer imageUrl={currentTaskData.imageUrl} />
                                 )}
                             </TextHighlighter>
                         </div>
                     </div>
 
                     {/* Writing Area */}
-                    <div className="lg:col-span-2">
-                        <div className="bg-white border border-gray-200 rounded overflow-hidden flex flex-col h-[calc(100vh-280px)]">
+                    <div className="flex-1 min-w-0 flex flex-col">
+                        <div className="bg-white border border-gray-200 rounded overflow-hidden flex flex-col flex-1">
                             {/* Writing Header */}
                             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
                                 <span className="text-gray-700 font-medium">Your Response</span>

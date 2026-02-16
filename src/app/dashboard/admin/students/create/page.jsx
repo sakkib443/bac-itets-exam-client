@@ -21,7 +21,7 @@ import {
     FaTimes,
     FaExclamationTriangle,
 } from "react-icons/fa";
-import { studentsAPI, questionSetsAPI } from "@/lib/api";
+import { studentsAPI, listeningAPI, readingAPI, writingAPI, speakingAPI } from "@/lib/api";
 
 // Toast Notification Component
 const Toast = ({ message, type, onClose }) => {
@@ -140,10 +140,10 @@ export default function CreateStudentPage() {
     const fetchQuestionSets = async () => {
         try {
             const [listeningRes, readingRes, writingRes, speakingRes] = await Promise.all([
-                questionSetsAPI.getSummary("LISTENING").catch(() => ({ data: [] })),
-                questionSetsAPI.getSummary("READING").catch(() => ({ data: [] })),
-                questionSetsAPI.getSummary("WRITING").catch(() => ({ data: [] })),
-                questionSetsAPI.getSummary("SPEAKING").catch(() => ({ data: [] })),
+                listeningAPI.getSummary().catch(() => ({ data: [] })),
+                readingAPI.getSummary().catch(() => ({ data: [] })),
+                writingAPI.getSummary().catch(() => ({ data: [] })),
+                speakingAPI.getSummary().catch(() => ({ data: [] })),
             ]);
 
             setListeningSets(listeningRes.data || []);
@@ -619,13 +619,13 @@ export default function CreateStudentPage() {
                 <div className="bg-white rounded-xl border border-gray-200 p-6">
                     <h3 className="font-semibold text-gray-800 mb-4">Assign Question Sets</h3>
                     <p className="text-sm text-gray-500 mb-4">
-                        Select which question sets this student will receive (optional - can be assigned later)
+                        Select which question sets this student will receive. All fields are <strong>optional</strong> — you can assign them later.
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 <FaHeadphones className="inline mr-1 text-purple-500" />
-                                Listening Set
+                                Listening Set <span className="text-xs text-gray-400 font-normal">(optional)</span>
                             </label>
                             <select
                                 name="listeningSetNumber"
@@ -633,10 +633,10 @@ export default function CreateStudentPage() {
                                 onChange={handleInputChange}
                                 className={getInputClass("listeningSetNumber")}
                             >
-                                <option value="">Select a set...</option>
+                                <option value="">Not assigned</option>
                                 {listeningSets.map((set) => (
-                                    <option key={set._id} value={set.setNumber}>
-                                        Set #{set.setNumber} - {set.title}
+                                    <option key={set._id} value={set.testNumber}>
+                                        Test #{set.testNumber} - {set.title}
                                     </option>
                                 ))}
                             </select>
@@ -644,7 +644,7 @@ export default function CreateStudentPage() {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 <FaBook className="inline mr-1 text-blue-500" />
-                                Reading Set
+                                Reading Set <span className="text-xs text-gray-400 font-normal">(optional)</span>
                             </label>
                             <select
                                 name="readingSetNumber"
@@ -652,10 +652,10 @@ export default function CreateStudentPage() {
                                 onChange={handleInputChange}
                                 className={getInputClass("readingSetNumber")}
                             >
-                                <option value="">Select a set...</option>
+                                <option value="">Not assigned</option>
                                 {readingSets.map((set) => (
-                                    <option key={set._id} value={set.setNumber}>
-                                        Set #{set.setNumber} - {set.title}
+                                    <option key={set._id} value={set.testNumber}>
+                                        Test #{set.testNumber} - {set.title}
                                     </option>
                                 ))}
                             </select>
@@ -663,7 +663,7 @@ export default function CreateStudentPage() {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 <FaPen className="inline mr-1 text-green-500" />
-                                Writing Set
+                                Writing Set <span className="text-xs text-gray-400 font-normal">(optional)</span>
                             </label>
                             <select
                                 name="writingSetNumber"
@@ -671,36 +671,33 @@ export default function CreateStudentPage() {
                                 onChange={handleInputChange}
                                 className={getInputClass("writingSetNumber")}
                             >
-                                <option value="">Select a set...</option>
+                                <option value="">Not assigned</option>
                                 {writingSets.map((set) => (
-                                    <option key={set._id} value={set.setNumber}>
-                                        Set #{set.setNumber} - {set.title}
+                                    <option key={set._id} value={set.testNumber}>
+                                        Test #{set.testNumber} - {set.title}
                                     </option>
                                 ))}
                             </select>
                         </div>
-                        {/* Speaking Set selection hidden */}
-                        {false && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    <FaMicrophone className="inline mr-1 text-orange-500" />
-                                    Speaking Set
-                                </label>
-                                <select
-                                    name="speakingSetNumber"
-                                    value={formData.speakingSetNumber}
-                                    onChange={handleInputChange}
-                                    className={getInputClass("speakingSetNumber")}
-                                >
-                                    <option value="">Select a set...</option>
-                                    {speakingSets.map((set) => (
-                                        <option key={set._id} value={set.setNumber}>
-                                            Set #{set.setNumber} - {set.title}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <FaMicrophone className="inline mr-1 text-orange-500" />
+                                Speaking Set <span className="text-xs text-gray-400 font-normal">(optional)</span>
+                            </label>
+                            <select
+                                name="speakingSetNumber"
+                                value={formData.speakingSetNumber}
+                                onChange={handleInputChange}
+                                className={getInputClass("speakingSetNumber")}
+                            >
+                                <option value="">Not assigned</option>
+                                {speakingSets.map((set) => (
+                                    <option key={set._id} value={set.testNumber}>
+                                        Test #{set.testNumber} - {set.title}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </div>
 

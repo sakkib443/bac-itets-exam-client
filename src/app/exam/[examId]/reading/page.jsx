@@ -13,7 +13,7 @@ import {
     FaPlay,
     FaArrowRight
 } from "react-icons/fa";
-import { questionSetsAPI, studentsAPI } from "@/lib/api";
+import { readingAPI, studentsAPI } from "@/lib/api";
 import ExamSecurity from "@/components/ExamSecurity";
 import TextHighlighter from "@/components/TextHighlighter";
 
@@ -87,7 +87,7 @@ export default function ReadingExamPage() {
                 }
 
                 // Fetch question set from backend
-                const response = await questionSetsAPI.getForExam("READING", readingSetNumber);
+                const response = await readingAPI.getForExam(readingSetNumber);
                 console.log("Reading API Response:", response);
 
                 if (response.success && response.data) {

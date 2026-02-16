@@ -15,7 +15,7 @@ import {
     FaSpinner,
     FaArrowRight
 } from "react-icons/fa";
-import { questionSetsAPI, studentsAPI } from "@/lib/api";
+import { listeningAPI, studentsAPI } from "@/lib/api";
 import ExamSecurity from "@/components/ExamSecurity";
 import TextHighlighter from "@/components/TextHighlighter";
 
@@ -96,7 +96,7 @@ export default function ListeningExamPage() {
                 }
 
                 // Fetch question set from backend
-                const response = await questionSetsAPI.getForExam("LISTENING", listeningSetNumber);
+                const response = await listeningAPI.getForExam(listeningSetNumber);
 
                 if (response.success && response.data) {
                     setQuestionSet(response.data);

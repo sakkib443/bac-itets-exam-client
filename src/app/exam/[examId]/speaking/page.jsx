@@ -19,7 +19,7 @@ import {
     FaCheckCircle,
     FaExclamationTriangle,
 } from "react-icons/fa";
-import { questionSetsAPI, studentsAPI, uploadAPI } from "@/lib/api";
+import { speakingAPI, studentsAPI, uploadAPI } from "@/lib/api";
 import ExamSecurity from "@/components/ExamSecurity";
 
 export default function SpeakingExamPage() {
@@ -98,7 +98,7 @@ export default function SpeakingExamPage() {
                     return;
                 }
 
-                const response = await questionSetsAPI.getForExam("SPEAKING", speakingSetNumber);
+                const response = await speakingAPI.getForExam(speakingSetNumber);
 
                 if (response.success && response.data) {
                     setQuestionSet(response.data);

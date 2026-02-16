@@ -1,5 +1,4 @@
 // API Service for IELTS Backend
-// Production URL: https://mega-ielts-exam-backend.vercel.app/api
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 // Get auth token from localStorage
@@ -251,73 +250,95 @@ export const studentsAPI = {
     },
 };
 
-// ================== QUESTION SETS API ==================
-export const questionSetsAPI = {
-    // Create new question set
-    create: async (setData) => {
-        const response = await apiRequest("/question-sets", {
+// ================== HELPER: Create module-specific API ==================
+const createModuleAPI = (basePath) => ({
+    create: async (data) => {
+        return await apiRequest(`/${basePath}`, {
             method: "POST",
-            body: JSON.stringify(setData),
+            body: JSON.stringify(data),
         });
-        return response;
     },
-
-    // Get all question sets
     getAll: async (params = {}) => {
         const queryString = new URLSearchParams(params).toString();
-        const response = await apiRequest(`/question-sets?${queryString}`);
-        return response;
+        return await apiRequest(`/${basePath}?${queryString}`);
     },
-
-    // Get question set by ID (with answers for admin)
     getById: async (id, includeAnswers = false) => {
-        const response = await apiRequest(`/question-sets/${id}?includeAnswers=${includeAnswers}`);
-        return response;
+        return await apiRequest(`/${basePath}/${id}?includeAnswers=${includeAnswers}`);
     },
-
-    // Get question set for exam (without answers)
-    getForExam: async (setType, setNumber) => {
-        const response = await apiRequest(`/question-sets/exam/${setType}/${setNumber}`);
-        return response;
+    getForExam: async (testNumber) => {
+        return await apiRequest(`/${basePath}/exam/${testNumber}`);
     },
-
-    // Update question set
     update: async (id, updateData) => {
-        const response = await apiRequest(`/question-sets/${id}`, {
+        return await apiRequest(`/${basePath}/${id}`, {
             method: "PATCH",
             body: JSON.stringify(updateData),
         });
-        return response;
     },
-
-    // Delete question set
     delete: async (id) => {
-        const response = await apiRequest(`/question-sets/${id}`, {
+        return await apiRequest(`/${basePath}/${id}`, {
             method: "DELETE",
         });
-        return response;
     },
-
-    // Toggle active status
     toggleActive: async (id) => {
-        const response = await apiRequest(`/question-sets/${id}/toggle-active`, {
+        return await apiRequest(`/${basePath}/${id}/toggle-active`, {
             method: "PATCH",
         });
-        return response;
     },
-
-    // Get set summary for dropdown
-    getSummary: async (setType) => {
-        const response = await apiRequest(`/question-sets/summary/${setType}`);
-        return response;
+    getSummary: async () => {
+        return await apiRequest(`/${basePath}/summary`);
     },
-
-    // Get statistics
     getStatistics: async () => {
-        const response = await apiRequest("/question-sets/statistics");
-        return response;
+        return await apiRequest(`/${basePath}/statistics`);
+    },
+});
+
+// ================== LISTENING API ==================
+export const listeningAPI = {
+    ...createModuleAPI("listening"),
+    grade: async (testNumber, answers) => {
+        return await apiRequest("/listening/grade", {
+            method: "POST",
+            body: JSON.stringify({ testNumber, answers }),
+        });
     },
 };
+
+// ================== READING API ==================
+export const readingAPI = {
+    ...createModuleAPI("reading"),
+    grade: async (testNumber, answers) => {
+        return await apiRequest("/reading/grade", {
+            method: "POST",
+            body: JSON.stringify({ testNumber, answers }),
+        });
+    },
+};
+
+// ================== WRITING API ==================
+export const writingAPI = {
+    ...createModuleAPI("writing"),
+    submitResponse: async (studentId, testNumber, taskNumber, response) => {
+        return await apiRequest("/writing/submit", {
+            method: "POST",
+            body: JSON.stringify({ studentId, testNumber, taskNumber, response }),
+        });
+    },
+    markSubmission: async (submissionId, examinerId, scores, feedback) => {
+        return await apiRequest(`/writing/submissions/${submissionId}/mark`, {
+            method: "PATCH",
+            body: JSON.stringify({ examinerId, scores, feedback }),
+        });
+    },
+    getPendingSubmissions: async (page = 1, limit = 10) => {
+        return await apiRequest(`/writing/submissions/pending?page=${page}&limit=${limit}`);
+    },
+};
+
+// ================== SPEAKING API ==================
+export const speakingAPI = {
+    ...createModuleAPI("speaking"),
+};
+
 
 // ================== EXAMS API ==================
 export const examsAPI = {
@@ -500,7 +521,10 @@ export const statsAPI = {
 export default {
     auth: authAPI,
     students: studentsAPI,
-    questionSets: questionSetsAPI,
+    listening: listeningAPI,
+    reading: readingAPI,
+    writing: writingAPI,
+    speaking: speakingAPI,
     exams: examsAPI,
     examSessions: examSessionsAPI,
     upload: uploadAPI,
