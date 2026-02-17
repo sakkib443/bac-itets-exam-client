@@ -151,16 +151,30 @@ export default function TextHighlighter({ children, passageId = "default" }) {
     const handleHighlight = useCallback((withNote = false) => {
         if (!selectedText || selectionOffset < 0) return;
 
-        const newHighlight = {
-            id: Date.now().toString(),
-            text: selectedText,
-            offset: selectionOffset, // exact position in the passage
-            color: "#FFFF00",
-            note: withNote ? noteText.trim() : "",
-            createdAt: new Date().toISOString(),
-        };
+        const newStart = selectionOffset;
+        const newEnd = selectionOffset + selectedText.length;
 
-        setHighlights((prev) => [...prev, newHighlight]);
+        setHighlights((prev) => {
+            // Remove any highlights that overlap with the new selection
+            const nonOverlapping = prev.filter((h) => {
+                const hStart = h.offset;
+                const hEnd = h.offset + h.text.length;
+                // Keep only if no overlap at all
+                return hEnd <= newStart || hStart >= newEnd;
+            });
+
+            const newHighlight = {
+                id: Date.now().toString(),
+                text: selectedText,
+                offset: selectionOffset,
+                color: "#FFFF00",
+                note: withNote ? noteText.trim() : "",
+                createdAt: new Date().toISOString(),
+            };
+
+            return [...nonOverlapping, newHighlight];
+        });
+
         setShowToolbar(false);
         setShowNoteInput(false);
         setNoteText("");
@@ -237,11 +251,26 @@ export default function TextHighlighter({ children, passageId = "default" }) {
         // Sort ranges by start position
         ranges.sort((a, b) => a.start - b.start);
 
+        // Merge overlapping ranges to prevent text duplication
+        const mergedRanges = [];
+        for (const range of ranges) {
+            const last = mergedRanges[mergedRanges.length - 1];
+            if (last && range.start < last.end) {
+                // Overlap: extend the previous range if needed
+                if (range.end > last.end) {
+                    last.end = range.end;
+                }
+                // Keep the highlight data from whichever is newer
+            } else {
+                mergedRanges.push({ ...range });
+            }
+        }
+
         // Build React elements array
         const elements = [];
         let lastEnd = 0;
 
-        ranges.forEach((range, idx) => {
+        mergedRanges.forEach((range, idx) => {
             // Add non-highlighted text before this range
             if (range.start > lastEnd) {
                 elements.push(text.substring(lastEnd, range.start));
