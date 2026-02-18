@@ -554,13 +554,6 @@ export default function WritingExamPage() {
                         <FaClock className="text-[10px]" />
                         <span>{formatTime(currentTime)}</span>
                     </div>
-
-                    <button
-                        onClick={() => setShowSubmitPartModal(true)}
-                        className="bg-gray-800 text-white px-4 py-1.5 rounded-md text-xs font-medium hover:bg-gray-900 cursor-pointer flex items-center gap-1.5 transition-colors"
-                    >
-                        Submit {currentTaskData.title} <FaCheck className="text-[10px]" />
-                    </button>
                 </header>
 
                 {/* ===== SPLIT PANE ===== */}

@@ -408,6 +408,7 @@ export default function ReadingExamPage() {
             case "summary-completion":
                 return "Sentence Completion";
             case "matching":
+            case "matching-headings":
                 return "Matching";
             default:
                 return type;
@@ -547,7 +548,7 @@ export default function ReadingExamPage() {
             </header>
 
             {/* Main Content */}
-            <div className="w-full px-6 py-4">
+            <div className="w-full px-6 py-4 pb-16">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Passage Panel */}
                     <div className="bg-white border border-gray-200 rounded overflow-hidden">
@@ -721,20 +722,22 @@ export default function ReadingExamPage() {
                                                                     <p className="text-gray-800 font-medium leading-relaxed">{stmt.text || stmt.questionText}</p>
                                                                 </div>
 
-                                                                <div className="flex flex-wrap gap-3 pl-10">
-                                                                    {["TRUE", "FALSE", "NOT GIVEN"].map((opt) => (
+                                                                <div className="space-y-3 pl-10 mt-2">
+                                                                    {[
+                                                                        { letter: "A", value: "TRUE" },
+                                                                        { letter: "B", value: "FALSE" },
+                                                                        { letter: "C", value: "NOT GIVEN" }
+                                                                    ].map((opt) => (
                                                                         <label
-                                                                            key={opt}
-                                                                            className={`flex items-center gap-2 px-5 py-2 border rounded-full cursor-pointer transition-all duration-200 ${answers[stmt.questionNumber] === opt
-                                                                                ? "bg-blue-600 border-blue-600 text-white shadow-md transform scale-105"
-                                                                                : "bg-white border-gray-300 text-gray-700 hover:border-blue-400 hover:bg-blue-50"
-                                                                                }`}
-                                                                            onClick={() => handleAnswer(stmt.questionNumber, opt)}
+                                                                            key={opt.value}
+                                                                            className="flex items-center gap-3 cursor-pointer group"
+                                                                            onClick={() => handleAnswer(stmt.questionNumber, opt.value)}
                                                                         >
-                                                                            <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${answers[stmt.questionNumber] === opt ? "bg-white border-white" : "border-gray-400"}`}>
-                                                                                {answers[stmt.questionNumber] === opt && <div className="w-1.5 h-1.5 bg-blue-600 rounded-full" />}
+                                                                            <span className="font-bold text-gray-800 text-sm min-w-[16px]">{opt.letter}</span>
+                                                                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${answers[stmt.questionNumber] === opt.value ? "border-blue-600" : "border-gray-400 group-hover:border-blue-400"}`}>
+                                                                                {answers[stmt.questionNumber] === opt.value && <div className="w-2 h-2 bg-blue-600 rounded-full" />}
                                                                             </div>
-                                                                            <span className="text-xs font-black uppercase tracking-wider">{opt}</span>
+                                                                            <span className={`text-sm font-semibold uppercase tracking-wide ${answers[stmt.questionNumber] === opt.value ? "text-blue-700" : "text-gray-700"}`}>{opt.value}</span>
                                                                         </label>
                                                                     ))}
                                                                 </div>
@@ -744,8 +747,8 @@ export default function ReadingExamPage() {
                                                 </div>
                                             )}
 
-                                            {/* MATCHING INFORMATION Format */}
-                                            {group.groupType === "matching-information" && (
+                                            {/* MATCHING INFORMATION / MATCHING FEATURES / MATCHING HEADINGS Format */}
+                                            {(group.groupType === "matching-information" || group.groupType === "matching-features" || group.groupType === "matching-headings") && (
                                                 <div className="space-y-3">
                                                     {/* Main Instruction */}
                                                     <p className="text-gray-800">{group.mainInstruction}</p>
@@ -758,6 +761,19 @@ export default function ReadingExamPage() {
                                                         <p className="text-gray-700 text-sm">
                                                             <span className="font-bold">NB</span> <em>{group.note.replace('NB ', '')}</em>
                                                         </p>
+                                                    )}
+
+                                                    {/* Feature Options List (for matching-features) */}
+                                                    {group.featureOptions?.length > 0 && (
+                                                        <div className="mt-4 mb-4 space-y-1">
+                                                            <p className="font-bold text-gray-900">{group.featureListTitle || "List of options"}</p>
+                                                            {group.featureOptions.map((opt) => (
+                                                                <div key={opt.letter} className="flex items-center gap-3 pl-2">
+                                                                    <span className="font-bold text-gray-800 min-w-[20px]">{opt.letter}</span>
+                                                                    <span className="text-gray-800">{opt.text}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     )}
 
                                                     {/* Matching Items */}
@@ -1020,6 +1036,97 @@ export default function ReadingExamPage() {
                                                     </div>
                                                 </div>
                                             )}
+
+                                            {/* SHORT ANSWER Format */}
+                                            {(group.questionType === "short-answer" || group.groupType === "short-answer") && (
+                                                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm mb-6">
+                                                    {/* Range and Instructions */}
+                                                    <div className="mb-4">
+                                                        <h3 className="text-lg font-bold text-gray-900 mb-1">
+                                                            Questions {group.startQuestion}-{group.endQuestion}
+                                                        </h3>
+                                                        <p className="text-gray-800 font-medium mb-1">{group.mainInstruction}</p>
+                                                        {group.subInstruction && (
+                                                            <p className="text-gray-700 text-sm italic">{group.subInstruction}</p>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Statements with text input */}
+                                                    <div className="space-y-4 mt-3">
+                                                        {group.statements?.map((stmt) => (
+                                                            <div key={stmt.questionNumber} id={`q-${stmt.questionNumber}`} className="py-2">
+                                                                <div className="flex items-start gap-3">
+                                                                    <span className="border border-gray-400 text-gray-700 text-sm font-bold px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">{stmt.questionNumber}</span>
+                                                                    <div className="flex-1">
+                                                                        <span className="text-gray-800 block mb-2">{stmt.text}</span>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={answers[stmt.questionNumber] || ""}
+                                                                            onChange={(e) => handleAnswer(stmt.questionNumber, e.target.value)}
+                                                                            placeholder="Your answer..."
+                                                                            className="border border-gray-300 rounded px-3 py-2 bg-white w-full max-w-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none transition-all"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* SENTENCE COMPLETION Format */}
+                                            {(group.questionType === "sentence-completion" || group.groupType === "sentence-completion") && (
+                                                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm mb-6">
+                                                    {/* Range and Instructions */}
+                                                    <div className="mb-4">
+                                                        <h3 className="text-lg font-bold text-gray-900 mb-1">
+                                                            Questions {group.startQuestion}-{group.endQuestion}
+                                                        </h3>
+                                                        <p className="text-gray-800 font-medium mb-1">{group.mainInstruction}</p>
+                                                        {group.subInstruction && (
+                                                            <p className="text-gray-700 text-sm italic">{group.subInstruction}</p>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Statements with text input */}
+                                                    <div className="space-y-4 mt-3">
+                                                        {group.statements?.map((stmt) => (
+                                                            <div key={stmt.questionNumber} id={`q-${stmt.questionNumber}`} className="py-2">
+                                                                <div className="flex items-start gap-3">
+                                                                    <span className="border border-gray-400 text-gray-700 text-sm font-bold px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">{stmt.questionNumber}</span>
+                                                                    <div className="flex-1">
+                                                                        <p className="text-gray-800 mb-2">
+                                                                            {stmt.text?.split('_________').map((part, pIdx, arr) => (
+                                                                                <React.Fragment key={pIdx}>
+                                                                                    {part}
+                                                                                    {pIdx < arr.length - 1 && (
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            value={answers[stmt.questionNumber] || ""}
+                                                                                            onChange={(e) => handleAnswer(stmt.questionNumber, e.target.value)}
+                                                                                            placeholder="..."
+                                                                                            className="border-b-2 border-gray-400 bg-transparent px-2 py-0.5 w-40 focus:border-blue-500 outline-none transition-all mx-1 inline-block"
+                                                                                        />
+                                                                                    )}
+                                                                                </React.Fragment>
+                                                                            ))}
+                                                                        </p>
+                                                                        {!stmt.text?.includes('_________') && (
+                                                                            <input
+                                                                                type="text"
+                                                                                value={answers[stmt.questionNumber] || ""}
+                                                                                onChange={(e) => handleAnswer(stmt.questionNumber, e.target.value)}
+                                                                                placeholder="Your answer..."
+                                                                                className="border border-gray-300 rounded px-3 py-2 bg-white w-full max-w-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none transition-all"
+                                                                            />
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     ))
                                 ) : null}
@@ -1028,67 +1135,73 @@ export default function ReadingExamPage() {
                             </TextHighlighter>
                         </div>
 
-                        <div className="flex items-center justify-between border-t border-gray-200 pt-6 mt-4">
-                            <button
-                                onClick={goPrev}
-                                disabled={currentPassage === 0}
-                                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all ${currentPassage === 0
-                                    ? "text-gray-300 cursor-not-allowed"
-                                    : "text-gray-700 hover:bg-gray-100 border border-gray-200 shadow-sm"
-                                    }`}
-                            >
-                                <FaChevronLeft />
-                                Previous Passage
-                            </button>
 
-                            <div className="text-sm font-semibold text-gray-500 flex items-center gap-2">
-                                <span className="bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
-                                    Passage {currentPassage + 1} of {passages.length}
-                                </span>
-                            </div>
 
-                            <button
-                                onClick={goNext}
-                                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-2.5 rounded-lg font-bold hover:shadow-lg hover:shadow-blue-500/20 active:scale-95 transition-all shadow-md shadow-blue-200"
-                            >
-                                {currentPassage === passages.length - 1 ? (
-                                    "Finish Test"
-                                ) : (
-                                    <>Next Passage <FaChevronRight /></>
-                                )}
-                            </button>
-                        </div>
+                    </div>
+                </div>
+            </div>
 
-                        {/* Question Navigator */}
-                        <div className="bg-white border border-gray-200 rounded p-4">
-                            <div className="flex flex-wrap gap-1 mb-3">
-                                {currentPass.questions.map((q, idx) => {
-                                    const isAnswered = answers[q.questionNumber] && answers[q.questionNumber] !== "";
-                                    const scrollToIndex = () => {
-                                        const element = document.getElementById(`q-${q.questionNumber}`);
-                                        if (element) {
-                                            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                        }
-                                    };
+            {/* Fixed Question Navigator - Bottom Bar */}
+            <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-300 shadow-[0_-4px_12px_rgba(0,0,0,0.1)]">
+                <div className="flex items-center h-12">
+                    {/* Part Tabs */}
+                    {passages.map((p, pIdx) => (
+                        <button
+                            key={pIdx}
+                            onClick={() => { setCurrentPassage(pIdx); setCurrentQuestion(0); }}
+                            className={`flex-shrink-0 h-full px-4 text-xs font-bold cursor-pointer transition-colors border-r border-gray-200 ${currentPassage === pIdx
+                                ? "bg-blue-600 text-white"
+                                : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                                }`}
+                        >
+                            Part {pIdx + 1}
+                        </button>
+                    ))}
 
-                                    return (
-                                        <button
-                                            key={q.questionNumber}
-                                            onClick={scrollToIndex}
-                                            className={`w-8 h-8 rounded text-sm font-medium cursor-pointer transition-all ${isAnswered
-                                                ? "bg-green-600 text-white border border-green-700 shadow-md"
-                                                : "bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600 border border-gray-200 shadow-sm"
-                                                }`}
-                                        >
-                                            {passages.slice(0, currentPassage).reduce((acc, p) => acc + p.questions.length, 0) + idx + 1}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <p className="text-gray-500 text-sm">
-                                Answered: {answeredCount}/{totalQuestions}
-                            </p>
-                        </div>
+                    {/* Current Part Question Numbers */}
+                    <div className="flex items-center gap-1 px-3 overflow-x-auto flex-1">
+                        {currentPass.questions.map((q) => {
+                            const isAnswered = answers[q.questionNumber] && answers[q.questionNumber] !== "";
+                            const scrollToQ = () => {
+                                const element = document.getElementById(`q-${q.questionNumber}`);
+                                if (element) {
+                                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                }
+                            };
+                            return (
+                                <button
+                                    key={q.questionNumber}
+                                    onClick={scrollToQ}
+                                    title={`Question ${q.questionNumber}`}
+                                    className={`flex-shrink-0 w-8 h-8 rounded text-xs font-bold cursor-pointer transition-all ${isAnswered
+                                        ? "bg-green-600 text-white border border-green-700"
+                                        : "bg-white text-gray-700 border border-gray-300 hover:bg-blue-50 hover:border-blue-400"
+                                        }`}
+                                >
+                                    {q.questionNumber}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Answered count + Nav */}
+                    <div className="flex-shrink-0 flex items-center gap-2 px-3 border-l border-gray-200 h-full">
+                        <span className="text-[11px] text-gray-500 whitespace-nowrap">
+                            {currentPass.questions.filter(q => answers[q.questionNumber] && answers[q.questionNumber] !== "").length} of {currentPass.questions.length}
+                        </span>
+                        <button
+                            onClick={goPrev}
+                            disabled={currentPassage === 0}
+                            className={`w-7 h-7 rounded flex items-center justify-center cursor-pointer transition-all ${currentPassage === 0 ? "text-gray-300 cursor-not-allowed" : "text-blue-600 hover:bg-blue-100 border border-blue-200"}`}
+                        >
+                            <FaChevronLeft className="text-xs" />
+                        </button>
+                        <button
+                            onClick={goNext}
+                            className="w-7 h-7 rounded flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 cursor-pointer transition-all"
+                        >
+                            {currentPassage === passages.length - 1 ? <FaCheck className="text-xs" /> : <FaChevronRight className="text-xs" />}
+                        </button>
                     </div>
                 </div>
             </div>
