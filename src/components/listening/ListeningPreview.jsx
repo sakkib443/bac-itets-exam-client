@@ -3,235 +3,218 @@ import React, { useState } from "react";
 import { FaHeadphones, FaVolumeUp, FaCheck } from "react-icons/fa";
 
 // ══════════════════════════════════════════════════════════
-// Renders one question block in IELTS exam style
+// Renders one question block in official IELTS preview style
 // ══════════════════════════════════════════════════════════
 function PreviewQuestion({ block }) {
+    const qType = block.questionType || "fill-in-blank";
     const isTextInput = [
         "note-completion", "form-completion", "table-completion",
         "sentence-completion", "summary-completion", "short-answer",
         "map-labelling",
-    ].includes(block.questionType);
+        "fill-in-blank"
+    ].includes(qType);
 
-    const isMultipleChoice = block.questionType === "multiple-choice";
-    const isMatching = block.questionType === "matching";
+    const isMultipleChoice = qType === "multiple-choice" || qType === "multiple-choice-multi";
+    const isMatching = qType.startsWith("matching");
 
-    return (
-        <div className="flex items-start gap-3 py-2.5 border-b border-gray-100 last:border-0">
-            {/* Question Number badge */}
-            <span className="flex-shrink-0 w-7 h-7 bg-indigo-600 text-white text-xs font-bold rounded flex items-center justify-center mt-0.5">
-                {block.questionNumber}
-            </span>
+    // Clean text logic (mirroring exam page)
+    const rawText = block.questionText || '';
+    const cleanText = rawText
+        .replace(/_{1,}/g, '')            // Remove underscores
+        .replace(/\{blank\}/g, '')        // Remove placeholders
+        .replace(/\[\d+\]/g, '')          // Remove [15] patterns
+        .trim();
 
-            <div className="flex-1 min-w-0">
-                {/* Question text */}
-                {block.questionText && (
-                    <p className="text-gray-800 text-sm leading-relaxed mb-2">
-                        {block.questionText}
-                    </p>
-                )}
+    // Standard Number Box style
+    const NumberBox = (
+        <span style={{
+            border: '1px solid #374151', fontWeight: 'bold', fontSize: '11px',
+            padding: '0 5px', color: '#111827', background: 'white',
+            lineHeight: '1.6', flexShrink: 0, borderRadius: '2px', display: 'inline-block', verticalAlign: 'middle'
+        }}>
+            {block.questionNumber}
+        </span>
+    );
 
-                {/* ── Note/Table/Short-answer: text input ── */}
-                {isTextInput && (
-                    <div className="flex items-center gap-2">
-                        <span className="border border-gray-300 rounded bg-gray-50 px-3 py-1.5 text-xs text-gray-400 w-40 h-8 leading-5">
-                            {block.correctAnswer
-                                ? <span className="text-green-600 font-semibold">{block.correctAnswer}</span>
-                                : "answer here"}
-                        </span>
-                        {block.correctAnswer && (
-                            <span className="text-[10px] bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
-                                <FaCheck size={8} /> Correct
-                            </span>
-                        )}
-                    </div>
-                )}
-
-                {/* ── Multiple Choice: radio buttons ── */}
-                {isMultipleChoice && (
-                    <div className="space-y-1.5">
-                        {(block.options || []).map((opt, oIdx) => {
-                            const letter = opt.match(/^([A-Z])\./)?.[1] || String.fromCharCode(65 + oIdx);
-                            const text = opt.replace(/^[A-Z]\.\s*/, "");
-                            const isCorrect = block.correctAnswer === letter || block.correctAnswer === opt;
-                            return (
-                                <div key={oIdx} className={`flex items-start gap-2.5 rounded-lg px-3 py-2 ${isCorrect ? "bg-green-50 border border-green-200" : "bg-gray-50 border border-gray-100"}`}>
-                                    <span className={`font-bold text-sm flex-shrink-0 mt-0.5 ${isCorrect ? "text-green-700" : "text-gray-600"}`}>{letter}</span>
-                                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${isCorrect ? "border-green-600 bg-green-600" : "border-gray-400"}`}>
-                                        {isCorrect && <div className="w-2 h-2 bg-white rounded-full" />}
-                                    </div>
-                                    <span className={`text-sm flex-1 ${isCorrect ? "text-green-800 font-medium" : "text-gray-700"}`}>{text}</span>
-                                    {isCorrect && (
-                                        <span className="text-[10px] bg-green-600 text-white px-1.5 py-0.5 rounded font-bold flex-shrink-0">✓</span>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-
-                {/* ── Matching: dropdown ── */}
-                {isMatching && (
-                    <div className="flex items-center gap-2 mt-1">
-                        <select
-                            disabled
-                            className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
-                            defaultValue={block.correctAnswer || ""}
-                        >
-                            <option value="">Select...</option>
-                            {(block.options || []).map((opt, i) => (
-                                <option key={i} value={opt.match(/^([A-Z])\./)?.[1] || opt}>
-                                    {opt}
-                                </option>
-                            ))}
-                        </select>
-                        {block.correctAnswer && (
-                            <span className="text-[10px] bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full font-semibold">
-                                ✓ {block.correctAnswer}
-                            </span>
-                        )}
-                    </div>
-                )}
+    // ── Note / Table / Sentence Completion: Inline style ──
+    if (isTextInput) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '12px', fontSize: '14px', color: '#111827', lineHeight: '1.8' }}>
+                <span style={{ flexShrink: 0, marginTop: '2px' }}>•</span>
+                <div style={{ flex: 1 }}>
+                    <span style={{ verticalAlign: 'middle' }}>{cleanText}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', verticalAlign: 'middle', marginLeft: '6px' }}>
+                        {NumberBox}
+                        <div style={{
+                            border: '1px solid #d1d5db', width: '150px',
+                            minHeight: '28px', background: '#f9fafb',
+                            color: '#059669', padding: '2px 8px', borderRadius: '2px',
+                            fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center'
+                        }}>
+                            {block.correctAnswer || "No answer set"}
+                        </div>
+                    </span>
+                </div>
             </div>
+        );
+    }
+
+    // ── Multiple Choice ──
+    if (isMultipleChoice) {
+        return (
+            <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
+                    {NumberBox}
+                    <span style={{ color: '#1f2937', fontSize: '14px', fontWeight: 'bold', lineHeight: '1.5' }}>{cleanText}</span>
+                </div>
+                <div style={{ marginLeft: '34px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {(block.options || []).map((opt, oIdx) => {
+                        const letter = String.fromCharCode(65 + oIdx);
+                        const text = opt.replace(/^[A-Z]\.\s*/, "");
+                        const isCorrect = block.correctAnswer && (block.correctAnswer.includes(letter) || block.correctAnswer === letter);
+                        return (
+                            <div key={oIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                <span style={{ fontWeight: 'bold', width: '16px', flexShrink: 0, fontSize: '13px' }}>{letter}</span>
+                                <div style={{
+                                    width: '16px', height: '16px', border: `1px solid ${isCorrect ? '#059669' : '#d1d5db'}`,
+                                    background: isCorrect ? '#059669' : 'white', flexShrink: 0, marginTop: '2px',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%'
+                                }}>
+                                    {isCorrect && <div style={{ width: '6px', height: '6px', background: 'white', borderRadius: '50%' }} />}
+                                </div>
+                                <span style={{ color: isCorrect ? '#059669' : '#374151', fontWeight: isCorrect ? 'bold' : 'normal', fontSize: '13px' }}>{text}</span>
+                                {isCorrect && <FaCheck className="text-green-600 mt-1" size={10} />}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    // ── Matching ──
+    if (isMatching) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                {NumberBox}
+                <span style={{ flex: 1, color: '#1f2937', fontSize: '14px' }}>{cleanText}</span>
+                <div style={{
+                    border: '1px solid #d1d5db', padding: '2px 10px', fontSize: '13px',
+                    background: '#ecfdf5', color: '#065f46', fontWeight: 'bold', borderRadius: '2px', width: '60px', textAlign: 'center'
+                }}>
+                    {block.correctAnswer || "?"}
+                </div>
+            </div>
+        );
+    }
+
+    // Fallback
+    return (
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', color: '#6b7280', fontSize: '12px' }}>
+            {NumberBox} <span>{cleanText} (Unsupported type in preview)</span>
         </div>
     );
 }
 
-// ══════════════════════════════════════════════════════════
-// MAIN LISTENING PREVIEW COMPONENT
-// ══════════════════════════════════════════════════════════
 export default function ListeningPreview({ sections, title, mainAudioUrl }) {
     const [activePart, setActivePart] = useState(0);
     const currentSection = sections[activePart] || {};
     const blocks = currentSection.questions || [];
 
     const questionBlocks = blocks.filter(b => b.blockType === "question");
-    const qCount = questionBlocks.length;
-    const answered = questionBlocks.filter(b => b.correctAnswer).length;
 
     return (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div style={{ backgroundColor: '#fff', border: '1px solid #d1d5db', borderRadius: '8px', overflow: 'hidden', fontFamily: 'Arial, sans-serif' }}>
             {/* ══ Header ══ */}
-            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 py-3.5">
-                <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-white font-bold text-sm flex items-center gap-2">
-                        <FaHeadphones size={14} />
-                        👁️ Live Preview — {title || "Untitled Listening Test"}
-                    </h3>
-                    <div className="text-indigo-200 text-[11px] bg-indigo-500/40 px-2 py-0.5 rounded-full">
-                        {answered}/{qCount} answers set
-                    </div>
-                </div>
-                {/* Part Tabs */}
-                <div className="flex gap-1">
-                    {sections.map((s, idx) => {
-                        const pqCount = (s.questions || []).filter(b => b.blockType === "question").length;
-                        return (
-                            <button
-                                key={idx}
-                                type="button"
-                                onClick={() => setActivePart(idx)}
-                                className={`px-3 py-1 rounded text-xs font-medium transition-all cursor-pointer flex-1 ${activePart === idx
-                                    ? "bg-white text-indigo-700 shadow"
-                                    : "bg-indigo-500/40 text-indigo-100 hover:bg-indigo-500/60"
-                                    }`}
-                            >
-                                Part {idx + 1}
-                                <span className={`ml-1 text-[10px] ${activePart === idx ? "text-indigo-400" : "text-indigo-300"}`}>
-                                    ({pqCount}Q)
-                                </span>
-                            </button>
-                        );
-                    })}
-                </div>
+            <div style={{ backgroundColor: '#1f2937', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <FaHeadphones size={14} />
+                    Live Preview — {title || "Untitled Listening Test"}
+                </h3>
             </div>
 
-            {/* ══ Content ══ */}
-            <div className="overflow-y-auto max-h-[72vh]">
+            {/* Part Tabs (Official Gray Banner Look) */}
+            <div style={{ backgroundColor: '#e5e7eb', borderBottom: '1px solid #d1d5db', padding: '5px 15px', display: 'flex', gap: '2px' }}>
+                {sections.map((_, idx) => (
+                    <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setActivePart(idx)}
+                        style={{
+                            padding: '4px 12px', fontSize: '12px', fontWeight: activePart === idx ? 'bold' : 'normal',
+                            background: activePart === idx ? '#fff' : 'transparent',
+                            color: activePart === idx ? '#1f2937' : '#4b5563',
+                            border: activePart === idx ? '1px solid #d1d5db' : '1px solid transparent',
+                            borderBottom: 'none', borderRadius: '3px 3px 0 0', cursor: 'pointer', marginBottom: '-6px'
+                        }}
+                    >
+                        Part {idx + 1}
+                    </button>
+                ))}
+            </div>
 
-                {/* Part info bar */}
-                <div className="px-5 py-3 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between">
-                    <div>
-                        <span className="font-semibold text-indigo-800 text-sm">{currentSection.title || `Part ${activePart + 1}`}</span>
-                        {currentSection.instructions && (
-                            <span className="ml-2 text-xs text-indigo-500">{currentSection.instructions}</span>
-                        )}
-                    </div>
-                    {currentSection.audioUrl && (
-                        <span className="text-xs text-indigo-600 flex items-center gap-1 bg-white border border-indigo-200 px-2 py-1 rounded-full">
-                            <FaVolumeUp size={9} /> Part audio set
-                        </span>
-                    )}
+            {/* ══ Scrollable Context Area ══ */}
+            <div style={{ overflowY: 'auto', maxHeight: '70vh', padding: '25px 40px' }}>
+
+                {/* Instruction Banner mirrors official Part Banner */}
+                <div style={{ marginBottom: '20px', borderBottom: '1px solid #f3f4f6', paddingBottom: '10px' }}>
+                    <p style={{ fontWeight: 'bold', fontSize: '13px', margin: '0 0 4px 0' }}>Part {activePart + 1}</p>
+                    <p style={{ fontSize: '12px', color: '#4b5563', margin: 0 }}>
+                        {currentSection.instructions || "Ready for listening section"}
+                    </p>
                 </div>
 
-                {/* Context */}
-                {currentSection.context && (
-                    <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-100">
-                        <p className="text-xs text-amber-800 italic">{currentSection.context}</p>
-                    </div>
-                )}
-
-                {/* Main Audio */}
+                {/* Main Audio (if set) */}
                 {mainAudioUrl && (
-                    <div className="px-5 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
-                        <FaVolumeUp className="text-indigo-400" size={11} />
-                        <span className="text-xs text-gray-500 font-mono truncate">{mainAudioUrl}</span>
+                    <div style={{ marginBottom: '15px', background: '#f9fafb', padding: '8px 12px', border: '1px dashed #d1d5db', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FaVolumeUp className="text-gray-400" size={12} />
+                        <span style={{ fontSize: '11px', color: '#6b7280', fontFamily: 'monospace' }}>{mainAudioUrl}</span>
                     </div>
                 )}
 
-                {/* Blocks */}
-                <div className="p-5 space-y-4">
+                {/* Render Content Blocks */}
+                <div style={{ textAlign: 'left' }}>
                     {blocks.length === 0 && (
-                        <div className="text-center py-10">
-                            <FaHeadphones className="text-gray-200 mx-auto mb-3" size={36} />
-                            <p className="text-gray-400 text-sm italic">No questions added to Part {activePart + 1} yet</p>
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af' }}>
+                            <FaHeadphones size={40} style={{ margin: '0 auto 10px opacity(0.2)' }} />
+                            <p style={{ fontStyle: 'italic', fontSize: '14px' }}>No questions in Part {activePart + 1}</p>
                         </div>
                     )}
 
-                    {blocks.map((block, idx) => {
-                        if (block.blockType === "instruction") {
+                    {blocks.map((block, bIdx) => {
+                        if (block.blockType === 'instruction') {
                             return (
-                                <div key={idx} className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-                                    <div
-                                        className="text-sm text-gray-800 leading-relaxed prose prose-sm max-w-none"
-                                        dangerouslySetInnerHTML={{ __html: block.content || "<em>Empty instruction</em>" }}
-                                    />
-                                </div>
+                                <div key={bIdx} style={{ marginBottom: '15px', color: '#374151', fontSize: '14px', lineHeight: '1.6' }}
+                                    dangerouslySetInnerHTML={{ __html: block.content }} />
                             );
                         }
-
-                        if (block.blockType === "question") {
-                            return <PreviewQuestion key={idx} block={block} />;
+                        if (block.blockType === 'question') {
+                            return <PreviewQuestion key={bIdx} block={block} />;
                         }
-
                         return null;
                     })}
                 </div>
-
-                {/* Answer Summary */}
-                {qCount > 0 && (
-                    <div className="px-5 py-3 bg-gray-50 border-t border-gray-200">
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>Part {activePart + 1} summary</span>
-                            <span className={`font-semibold ${answered === qCount ? "text-green-600" : "text-amber-600"}`}>
-                                {answered}/{qCount} answers filled
-                            </span>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-1">
-                            {questionBlocks.map(b => (
-                                <span
-                                    key={b.questionNumber}
-                                    className={`w-7 h-7 text-[10px] font-bold rounded flex items-center justify-center border ${b.correctAnswer
-                                        ? "bg-green-50 text-green-700 border-green-300"
-                                        : "bg-red-50 text-red-400 border-red-200"
-                                        }`}
-                                >
-                                    {b.questionNumber}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                )}
             </div>
+
+            {/* Answer Summary Footer */}
+            {questionBlocks.length > 0 && (
+                <div style={{ padding: '10px 20px', backgroundColor: '#f9fafb', borderTop: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '11px', color: '#9ca3af' }}>Showing correct answers in GREEN</span>
+                    <div style={{ display: 'flex', gap: '2px' }}>
+                        {questionBlocks.map(b => (
+                            <div key={b.questionNumber} style={{
+                                width: '22px', height: '22px', fontSize: '10px', fontWeight: 'bold',
+                                border: '1px solid #d1d5db', background: b.correctAnswer ? '#1f2937' : '#fff',
+                                color: b.correctAnswer ? '#fff' : '#9ca3af',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                {b.questionNumber}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
+

@@ -9,7 +9,8 @@ import {
     FaPlay,
     FaTimes,
     FaSpinner,
-    FaArrowRight
+    FaArrowRight,
+    FaHeadphones
 } from "react-icons/fa";
 import { listeningAPI, studentsAPI } from "@/lib/api";
 import ExamSecurity from "@/components/ExamSecurity";
@@ -33,10 +34,10 @@ export default function ListeningExamPage() {
     const [questionSet, setQuestionSet] = useState(null);
     const [session, setSession] = useState(null);
 
-    // Audio states
     const [isPlaying, setIsPlaying] = useState(false);
     const [volume, setVolume] = useState(1);
     const audioRef = useRef(null);
+    const hasStarted = useRef(false);
 
     // ── Load exam data ───────────────────────────────────────────────────
     useEffect(() => {
@@ -183,10 +184,12 @@ export default function ListeningExamPage() {
     }, []);
 
     useEffect(() => {
-        if (audioRef.current && !showInstructions && audioUrl) {
+        if (audioRef.current && !showInstructions && audioUrl && !hasStarted.current) {
             audioRef.current.src = audioUrl;
             audioRef.current.load();
-            setIsPlaying(false);
+            audioRef.current.play().catch(err => console.log("Auto-play blocked:", err));
+            setIsPlaying(true);
+            hasStarted.current = true;
         }
     }, [showInstructions, audioUrl]);
 
@@ -304,31 +307,53 @@ export default function ListeningExamPage() {
     // RENDER: Instructions
     // ─────────────────────────────────────────────────────────────────────
     if (showInstructions) return (
-        <div className="min-h-screen bg-white flex items-center justify-center p-6" style={{ fontFamily: "'Arial', sans-serif" }}>
-            <div className="max-w-xl w-full">
-                <div className="flex items-center gap-2 mb-6 pb-3 border-b border-gray-300">
-                    <span className="font-bold text-[#d40000] text-xl italic tracking-tight">IELTS</span>
-                    <span className="text-gray-500 text-sm">Academic Listening Test</span>
+        <div className="min-h-screen" style={{ backgroundColor: '#4b4b4b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Arial, sans-serif' }}>
+            <div style={{ textAlign: 'center', maxWidth: '800px', padding: '0 20px', color: 'white' }}>
+                {/* Headphones Icon */}
+                <div style={{ marginBottom: '40px', display: 'flex', justifyContent: 'center' }}>
+                    <FaHeadphones size={100} style={{ color: 'white', opacity: 0.9 }} />
                 </div>
-                <h1 className="text-xl font-bold text-gray-800 mb-3">Listening Test Instructions</h1>
-                <div className="bg-gray-50 border border-gray-200 p-4 mb-4 text-sm text-gray-700 space-y-2">
-                    <p><strong>Set:</strong> {questionSet?.title || `Listening Set #${questionSet?.setNumber}`}</p>
-                    <p><strong>Time allowed:</strong> {questionSet?.duration || 40} minutes</p>
-                    <p><strong>Total questions:</strong> {totalQuestions} questions across {sections.length} parts</p>
-                </div>
-                <div className="bg-yellow-50 border border-yellow-200 p-4 mb-5 text-sm">
-                    <p className="font-semibold text-gray-800 mb-2">Instructions:</p>
-                    <ul className="text-gray-700 space-y-1">
-                        <li>• Listen to the audio and answer the questions as you listen</li>
-                        <li>• You will hear each part only once</li>
-                        <li>• Write your answers in the spaces provided</li>
-                        <li>• Spelling must be correct. Numbers may be written in figures or words</li>
-                    </ul>
-                </div>
-                <button onClick={() => setShowInstructions(false)} className="w-full bg-gray-800 text-white py-3 font-bold text-base hover:bg-gray-900 cursor-pointer flex items-center justify-center gap-3 transition-colors">
-                    <FaPlay size={12} />
-                    <span>Start Listening Test</span>
-                    <FaArrowRight size={12} />
+
+                {/* Warning Text */}
+                <p style={{ fontSize: '15px', lineHeight: '1.6', marginBottom: '25px', fontWeight: '400' }}>
+                    You will be listening to an audio clip during this test. You will not be permitted to pause or rewind the audio while answering the questions.
+                </p>
+
+                <p style={{ fontSize: '15px', marginBottom: '30px', fontWeight: '400' }}>
+                    To continue, click Play.
+                </p>
+
+                {/* Play Button */}
+                <button
+                    onClick={() => setShowInstructions(false)}
+                    style={{
+                        backgroundColor: 'black',
+                        color: 'white',
+                        border: 'none',
+                        padding: '10px 25px',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        cursor: 'pointer',
+                        borderRadius: '4px',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                    }}
+                >
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '50%',
+                        width: '24px',
+                        height: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        paddingLeft: '2px'
+                    }}>
+                        <FaPlay size={10} style={{ color: 'black' }} />
+                    </div>
+                    Play
                 </button>
             </div>
         </div>
@@ -393,14 +418,7 @@ export default function ListeningExamPage() {
                         <span style={{ fontWeight: 'bold', fontSize: '14px', color: timeLeft < 300 ? '#dc2626' : '#374151', fontVariantNumeric: 'tabular-nums' }}>
                             {formatTime(timeLeft)}
                         </span>
-                        <button onClick={togglePlay} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#4b5563', border: '1px solid #d1d5db', padding: '2px 8px', cursor: 'pointer', background: 'white' }}>
-                            {isPlaying ? <FaPause size={9} /> : <FaPlay size={9} />}
-                            <span>{isPlaying ? 'Pause' : 'Play'}</span>
-                        </button>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#9ca3af' }}>
-                            <FaVolumeUp size={9} />
-                            <input type="range" min="0" max="1" step="0.1" value={volume} onChange={handleVolumeChange} style={{ width: '60px', height: '3px', cursor: 'pointer', accentColor: '#374151' }} />
-                        </div>
+
                         <button onClick={() => setShowSubmitModal(true)} style={{ fontSize: '12px', color: '#4b5563', border: '1px solid #d1d5db', padding: '2px 10px', cursor: 'pointer', background: 'white' }}>
                             Submit
                         </button>
@@ -623,32 +641,40 @@ export default function ListeningExamPage() {
                 height: '46px', padding: '0 8px', zIndex: 100
             }}>
                 {/* Part label */}
-                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#374151', marginRight: '8px', flexShrink: 0 }}>
+                <span style={{ fontSize: '15px', fontWeight: 'bold', color: '#111827', marginRight: '16px', flexShrink: 0 }}>
                     Part {currentSectionIndex + 1}
                 </span>
 
-                {/* Question number buttons — grouped by 10 (pages) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flex: 1, overflowX: 'auto' }}>
-                    {allRealQuestions.map(q => {
-                        const isAnswered = answers[q.displayNumber] && answers[q.displayNumber] !== '';
-                        const pg = Math.floor((q.displayNumber - 1) / QUESTIONS_PER_PAGE);
-                        const isOnCurrentPage = pg === currentPage;
-                        return (
-                            <button key={q.displayNumber}
-                                onClick={() => goToPage(pg)}
-                                style={{
-                                    width: '26px', height: '26px', fontSize: '11px', fontWeight: 'bold',
-                                    border: `1px solid ${isAnswered ? '#4b5563' : isOnCurrentPage ? '#6b7280' : '#d1d5db'}`,
-                                    background: isAnswered ? '#374151' : 'white',
-                                    color: isAnswered ? 'white' : isOnCurrentPage ? '#1f2937' : '#9ca3af',
-                                    cursor: 'pointer', flexShrink: 0,
-                                    outline: isOnCurrentPage && !isAnswered ? '2px solid #374151' : 'none',
-                                    outlineOffset: '1px'
-                                }}>
-                                {q.displayNumber}
-                            </button>
-                        );
-                    })}
+                {/* Question number buttons — filtered to show only current part */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, overflowX: 'auto', paddingBottom: '2px' }}>
+                    {allRealQuestions
+                        .filter(q => Math.floor((q.displayNumber - 1) / QUESTIONS_PER_PAGE) === currentPage)
+                        .map(q => {
+                            const isAnswered = answers[q.displayNumber] && answers[q.displayNumber] !== '';
+                            return (
+                                <div key={q.displayNumber} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                    {/* Indicator Line Above */}
+                                    <div style={{ width: '28px', height: '2px', background: isAnswered ? '#2563eb' : '#e5e7eb', borderRadius: '1px' }}></div>
+
+                                    <button
+                                        onClick={() => {
+                                            const el = document.getElementById(`q-${q.displayNumber}`);
+                                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        }}
+                                        style={{
+                                            width: '28px', height: '28px', fontSize: '14px', fontWeight: '500',
+                                            border: isAnswered ? '2px solid #2563eb' : '2px solid transparent',
+                                            background: 'transparent',
+                                            color: '#374151',
+                                            cursor: 'pointer', flexShrink: 0,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            borderRadius: '2px'
+                                        }}>
+                                        {q.displayNumber}
+                                    </button>
+                                </div>
+                            );
+                        })}
                 </div>
 
                 {/* ◄ ► arrows */}

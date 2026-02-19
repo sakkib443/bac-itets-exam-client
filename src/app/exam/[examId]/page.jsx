@@ -31,9 +31,35 @@ export default function ExamSelectionPage() {
     const [completedModules, setCompletedModules] = useState([]);
     const [moduleScores, setModuleScores] = useState(null);
 
+    // System Check States
+    const [systemChecked, setSystemChecked] = useState(false);
+    const [checkStep, setCheckStep] = useState(1);
+    const [testAudioPlaying, setTestAudioPlaying] = useState(false);
+    const [cameraStream, setCameraStream] = useState(null);
+    const videoRef = React.useRef(null);
+
+    // Audio/Visual states
+    const [audioDevices, setAudioDevices] = useState([]);
+    const [selectedOutput, setSelectedOutput] = useState("");
+    const [micVolume, setMicVolume] = useState(0);
+    const audioContextRef = React.useRef(null);
+    const analyserRef = React.useRef(null);
+    const animationFrameRef = React.useRef(null);
+
+    // Recording states for mic test
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordedUrl, setRecordedUrl] = useState(null);
+    const mediaRecorderRef = React.useRef(null);
+    const chunksRef = React.useRef([]);
+
+    // UI Settings
+    const [displaySettings, setDisplaySettings] = useState({
+        fontSize: 'standard',
+        theme: 'standard',
+    });
+
     useEffect(() => {
         const loadSessionAndVerify = async () => {
-            // Load session from localStorage
             const storedSession = localStorage.getItem("examSession");
             if (!storedSession) {
                 setError("No exam session found. Please start from the exam entry page.");
@@ -43,11 +69,6 @@ export default function ExamSelectionPage() {
 
             try {
                 const parsed = JSON.parse(storedSession);
-
-                // Verify session ID matches
-                // The URL can contain either:
-                // 1. sessionId (e.g., SESSION-EXAMID-TIMESTAMP) - from start-exam page
-                // 2. examId (e.g., BACIELTS2500001) - from dashboard
                 const isValidSession =
                     parsed.sessionId === sessionId ||
                     parsed.examId === sessionId ||
@@ -60,43 +81,33 @@ export default function ExamSelectionPage() {
                     return;
                 }
 
-                // Normalize the session object
                 if (!parsed.studentName && parsed.name) {
                     parsed.studentName = parsed.name;
                 }
 
                 setSession(parsed);
 
-                // IMPORTANT: Fetch completedModules from DATABASE (not just localStorage)
-                // This prevents students from bypassing by clearing localStorage
                 try {
                     const verifyResponse = await studentsAPI.verifyExamId(parsed.examId);
                     if (verifyResponse.success && verifyResponse.data) {
-                        // Even if valid is false, it might be because it's already completed
-                        // in which case we still want to show the completion screen
                         const dbCompletedModules = verifyResponse.data.completedModules || [];
                         const dbScores = verifyResponse.data.scores || null;
 
-                        // Check if exam is completed (at least 3 modules done)
-                        // If invalid but all 3 modules done, we should NOT show error, but show completion screen
                         if (!verifyResponse.data.valid && dbCompletedModules.length < 3) {
                             setError(verifyResponse.data.message || "Invalid session. Please start again.");
                             setIsLoading(false);
                             return;
                         }
 
-                        // Update state with database values (source of truth)
                         setCompletedModules(dbCompletedModules);
                         if (dbScores) setModuleScores(dbScores);
 
-                        // Also update localStorage to keep in sync
                         parsed.completedModules = dbCompletedModules;
                         parsed.scores = dbScores;
                         localStorage.setItem("examSession", JSON.stringify(parsed));
                     }
                 } catch (apiError) {
                     console.error("Failed to verify from database, using localStorage:", apiError);
-                    // Fallback to localStorage if API fails
                     if (parsed.completedModules && Array.isArray(parsed.completedModules)) {
                         setCompletedModules(parsed.completedModules);
                     }
@@ -107,13 +118,63 @@ export default function ExamSelectionPage() {
             } catch (err) {
                 setError("Session data corrupted. Please start again.");
             }
-
             setIsLoading(false);
         };
-
         loadSessionAndVerify();
     }, [sessionId]);
 
+    // Handle Media and Devices for system check
+    useEffect(() => {
+        const getDevices = async () => {
+            try {
+                // Request permission first to get device labels
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const outputs = devices.filter(d => d.kind === 'audiooutput');
+                setAudioDevices(outputs);
+                if (outputs.length > 0) setSelectedOutput(outputs[0].deviceId);
+            } catch (err) {
+                console.error("Error enumeration devices:", err);
+            }
+        };
+        getDevices();
+
+        if (checkStep === 2 && !cameraStream) {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(stream => {
+                    setCameraStream(stream);
+                    if (videoRef.current) videoRef.current.srcObject = stream;
+
+                    // Setup Audio Visualizer
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const analyser = audioContext.createAnalyser();
+                    const source = audioContext.createMediaStreamSource(stream);
+                    source.connect(analyser);
+                    analyser.fftSize = 256;
+
+                    audioContextRef.current = audioContext;
+                    analyserRef.current = analyser;
+
+                    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    const updateVolume = () => {
+                        if (!analyserRef.current) return;
+                        analyserRef.current.getByteFrequencyData(dataArray);
+                        const volume = dataArray.reduce((p, c) => p + c, 0) / dataArray.length;
+                        setMicVolume(volume);
+                        animationFrameRef.current = requestAnimationFrame(updateVolume);
+                    };
+                    updateVolume();
+                })
+                .catch(err => console.error("Media access error:", err));
+        }
+        return () => {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+            if (audioContextRef.current) audioContextRef.current.close();
+        };
+    }, [checkStep]);
 
     if (isLoading) {
         return (
@@ -179,6 +240,9 @@ export default function ExamSelectionPage() {
         }
     ];
 
+    const totalTime = examModules.reduce((sum, m) => sum + m.duration, 0);
+    const totalQuestions = examModules.reduce((sum, m) => sum + m.questions, 0);
+
     const handleStartModule = (moduleId) => {
         router.push(`/exam/${sessionId}/${moduleId}`);
     };
@@ -187,11 +251,182 @@ export default function ExamSelectionPage() {
         router.push(`/exam/${sessionId}/full`);
     };
 
-    const totalTime = examModules.reduce((sum, m) => sum + m.duration, 0);
-    const totalQuestions = examModules.reduce((sum, m) => sum + m.questions, 0);
+    // ── System Check Overlay ──
+    if (!systemChecked && completedModules.length < 3) {
+        return (
+            <div className="min-h-screen bg-[#4b4b4b] flex items-center justify-center p-6 transition-all duration-500">
+                <div className="max-w-xl w-full bg-white rounded-lg shadow-2xl overflow-hidden border border-gray-600">
+                    <div className="bg-[#1f2937] px-6 py-4 flex items-center justify-between">
+                        <h2 className="text-white font-bold flex items-center gap-2">
+                            <FaUser size={14} /> System Check
+                        </h2>
+                        <div className="flex gap-2">
+                            {[1, 2].map(s => (
+                                <div key={s} className={`w-2 h-2 rounded-full ${checkStep === s ? 'bg-cyan-400' : 'bg-gray-600'}`}></div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="p-8 text-center">
+                        {checkStep === 1 && (
+                            <div className="space-y-6">
+                                <div className="w-16 h-16 bg-cyan-100 text-cyan-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <FaHeadphones size={28} />
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-800">Check Your Audio</h3>
+                                <p className="text-gray-600 text-sm">
+                                    Select your speaker/headphones and play the test sound.
+                                </p>
+
+                                <div className="max-w-xs mx-auto text-left">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5 ml-1">Output Device</label>
+                                    <select
+                                        value={selectedOutput}
+                                        onChange={(e) => setSelectedOutput(e.target.value)}
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                    >
+                                        {audioDevices.length > 0 ? (
+                                            audioDevices.map(d => (
+                                                <option key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${d.deviceId.slice(0, 5)}`}</option>
+                                            ))
+                                        ) : (
+                                            <option value="">Default Speaker</option>
+                                        )}
+                                    </select>
+                                </div>
+
+                                <button
+                                    onClick={async () => {
+                                        const voiceAudio = new Audio("https://ielts-gateway.com/wp-content/uploads/2022/10/Listening-Introduction.mp3");
+                                        if (voiceAudio.setSinkId && selectedOutput) {
+                                            await voiceAudio.setSinkId(selectedOutput);
+                                        }
+                                        voiceAudio.play().catch(e => console.error("Audio play failed:", e));
+                                        setTestAudioPlaying(true);
+                                        voiceAudio.onended = () => setTestAudioPlaying(false);
+                                        setTimeout(() => setTestAudioPlaying(false), 5000);
+                                    }}
+                                    className={`px-8 py-4 rounded-md font-bold text-sm transition-all border-2 flex items-center justify-center gap-3 mx-auto ${testAudioPlaying ? 'bg-cyan-50 border-cyan-500 text-cyan-600' : 'bg-gray-100 border-gray-200 text-gray-700 hover:border-cyan-400'}`}
+                                >
+                                    <FaPlay size={14} />
+                                    {testAudioPlaying ? "Playing Demo Audio..." : "Play Test Voice Audio"}
+                                </button>
+                                <div className="pt-8">
+                                    <button onClick={() => setCheckStep(2)} className="bg-black text-white px-8 py-3 rounded font-bold hover:bg-gray-900 w-full flex items-center justify-center gap-3">
+                                        I can hear the sound <FaArrowRight size={12} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {checkStep === 2 && (
+                            <div className="space-y-6">
+                                <h3 className="text-xl font-bold text-gray-800">Video & Microphone Check</h3>
+                                <div className="aspect-video bg-black rounded-lg overflow-hidden border-4 border-gray-800 shadow-inner relative">
+                                    <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+                                    <div className="absolute bottom-4 left-4 flex gap-2">
+                                        <div className="bg-black/60 px-3 py-1 rounded text-[10px] text-white flex items-center gap-2">
+                                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div> LIVE CAMERA
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 text-left">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Microphone Verification</p>
+                                        {isRecording && <span className="flex items-center gap-1.5 text-xs text-red-600 font-bold bg-red-50 px-2 py-1 rounded animate-pulse">
+                                            <div className="w-1.5 h-1.5 bg-red-600 rounded-full"></div> RECORDING
+                                        </span>}
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3 mb-4">
+                                        <button
+                                            onClick={() => {
+                                                if (!isRecording) {
+                                                    chunksRef.current = [];
+                                                    const mediaRecorder = new MediaRecorder(cameraStream);
+                                                    mediaRecorderRef.current = mediaRecorder;
+                                                    mediaRecorder.ondataavailable = (e) => chunksRef.current.push(e.data);
+                                                    mediaRecorder.onstop = () => {
+                                                        const blob = new Blob(chunksRef.current, { type: 'audio/ogg; codecs=opus' });
+                                                        setRecordedUrl(URL.createObjectURL(blob));
+                                                    };
+                                                    mediaRecorder.start();
+                                                    setIsRecording(true);
+                                                    setTimeout(() => {
+                                                        if (mediaRecorder.state === 'recording') {
+                                                            mediaRecorder.stop();
+                                                            setIsRecording(false);
+                                                        }
+                                                    }, 3000);
+                                                }
+                                            }}
+                                            disabled={isRecording}
+                                            className={`flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs border-2 transition-all ${isRecording ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-gray-200 text-gray-700 hover:border-cyan-500'}`}
+                                        >
+                                            <FaMicrophone size={12} />
+                                            {isRecording ? "Recording..." : "Record 3s Voice"}
+                                        </button>
+
+                                        <button
+                                            onClick={() => {
+                                                if (recordedUrl) {
+                                                    const audio = new Audio(recordedUrl);
+                                                    audio.play();
+                                                }
+                                            }}
+                                            disabled={!recordedUrl || isRecording}
+                                            className={`flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-xs border-2 transition-all ${!recordedUrl ? 'bg-gray-50 border-gray-100 text-gray-300' : 'bg-cyan-50 border-cyan-200 text-cyan-600 hover:bg-cyan-100'}`}
+                                        >
+                                            <FaPlay size={10} />
+                                            Play Back Voice
+                                        </button>
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden flex items-center px-1">
+                                            <div
+                                                className="h-1.5 bg-cyan-500 rounded-full transition-all duration-75"
+                                                style={{ width: `${Math.min(100, (micVolume / 100) * 100)}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-2 italic text-center">Speak now to see the volume bar bounce. Record and play back to verify.</p>
+                                </div>
+                                <div className="pt-4">
+                                    <button
+                                        onClick={() => {
+                                            setSystemChecked(true);
+                                            localStorage.setItem('examSettings', JSON.stringify(displaySettings));
+                                        }}
+                                        className="bg-[#1a56db] text-white px-8 py-4 rounded font-bold hover:bg-[#1e429f] w-full flex items-center justify-center gap-3 shadow-xl"
+                                    >
+                                        Confirm & Go to Exam <FaArrowRight size={14} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Dynamic styles based on settings
+    const themeStyles = {
+        standard: "bg-white text-gray-900 border-gray-200",
+        yellow: "bg-[#fff9c4] text-black border-[#fbc02d]",
+        blue: "bg-[#e3f2fd] text-black border-[#90caf9]",
+        'high-contrast': "bg-black text-white border-gray-800",
+    }[displaySettings.theme];
+
+    const fontStyles = {
+        standard: "text-base",
+        large: "text-lg",
+        'extra-large': "text-xl",
+    }[displaySettings.fontSize];
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-white transition-colors duration-300">
             {/* Header */}
             <header className="bg-white border-b border-gray-200 py-4 px-4">
                 <div className="max-w-5xl mx-auto flex items-center justify-between">
@@ -211,7 +446,6 @@ export default function ExamSelectionPage() {
             </header>
 
             <div className="max-w-5xl mx-auto px-4 py-10">
-                {/* Check if all modules are completed */}
                 {completedModules.length >= 3 ? (
                     <div className="max-w-2xl mx-auto text-center py-10 px-6 bg-white rounded-md border border-gray-200 shadow-sm relative">
                         <div className="relative z-10">
@@ -280,7 +514,6 @@ export default function ExamSelectionPage() {
                     </div>
                 ) : (
                     <>
-                        {/* Title */}
                         <div className="text-center mb-8">
                             <h1 className="text-3xl font-bold text-gray-800 mb-2">
                                 IELTS Academic Test
@@ -290,7 +523,6 @@ export default function ExamSelectionPage() {
                             </p>
                         </div>
 
-                        {/* Stats Bar */}
                         <div className="grid grid-cols-3 gap-4 mb-8">
                             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
                                 <p className="text-2xl font-bold text-cyan-600">{totalQuestions}</p>
@@ -306,7 +538,6 @@ export default function ExamSelectionPage() {
                             </div>
                         </div>
 
-                        {/* Full Exam Card */}
                         <div
                             onClick={handleStartFullExam}
                             className="bg-cyan-50 border-2 border-cyan-200 rounded-lg p-6 mb-8 cursor-pointer hover:border-cyan-400 transition-colors"
@@ -343,29 +574,16 @@ export default function ExamSelectionPage() {
                             </div>
                         </div>
 
-                        {/* Divider */}
                         <div className="flex items-center gap-4 mb-8">
                             <div className="flex-1 h-px bg-gray-200"></div>
                             <span className="text-gray-400 text-sm">OR PRACTICE INDIVIDUAL SECTIONS</span>
                             <div className="flex-1 h-px bg-gray-200"></div>
                         </div>
 
-                        {/* Individual Module Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {examModules.map((module) => {
                                 const hasSet = module.setNumber != null;
                                 const isCompleted = completedModules.includes(module.id);
-
-                                // Get score for completed module
-                                const getModuleScore = () => {
-                                    if (!moduleScores) return null;
-                                    if (module.id === "listening") return moduleScores.listening?.band;
-                                    if (module.id === "reading") return moduleScores.reading?.band;
-                                    if (module.id === "writing") return moduleScores.writing?.overallBand;
-                                    if (module.id === "speaking") return moduleScores.speaking?.band;
-                                    return null;
-                                };
-                                const score = getModuleScore();
 
                                 return (
                                     <div
@@ -378,7 +596,6 @@ export default function ExamSelectionPage() {
                                                 : "border-gray-100 opacity-60 cursor-not-allowed"
                                             }`}
                                     >
-                                        {/* Completed Badge */}
                                         {isCompleted && (
                                             <div className="absolute top-3 right-3 flex items-center gap-1 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
                                                 <FaCheckCircle className="text-xs" />
@@ -392,20 +609,13 @@ export default function ExamSelectionPage() {
                                                 ? 'bg-cyan-100 text-cyan-600'
                                                 : module.color === 'blue'
                                                     ? 'bg-blue-100 text-blue-600'
-                                                    : module.color === 'orange'
-                                                        ? 'bg-orange-100 text-orange-600'
-                                                        : 'bg-green-100 text-green-600'
+                                                    : 'bg-green-100 text-green-600'
                                             } rounded-xl flex items-center justify-center mb-4`}>
                                             {isCompleted ? <FaCheckCircle className="text-2xl" /> : module.icon}
                                         </div>
 
                                         <div className="flex items-center gap-2 mb-1">
                                             <h3 className="text-lg font-bold text-gray-800">{module.name}</h3>
-                                            {hasSet && !isCompleted && (
-                                                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs font-medium">
-                                                    Set #{module.setNumber}
-                                                </span>
-                                            )}
                                         </div>
                                         <p className="text-gray-500 text-sm mb-1">{module.description}</p>
                                         <p className="text-gray-400 text-xs mb-4">{module.details}</p>
@@ -433,7 +643,7 @@ export default function ExamSelectionPage() {
                                                 Already Completed
                                             </div>
                                         ) : hasSet ? (
-                                            <button className={`w-full flex items-center justify-center gap-3 ${module.color === 'cyan' ? 'bg-cyan-600 hover:bg-cyan-700' : module.color === 'blue' ? 'bg-blue-600 hover:bg-blue-700' : module.color === 'orange' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'} text-white py-3 rounded-xl font-bold transition-all hover:shadow-lg cursor-pointer group`}>
+                                            <button className={`w-full flex items-center justify-center gap-3 ${module.color === 'cyan' ? 'bg-cyan-600 hover:bg-cyan-700' : module.color === 'blue' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'} text-white py-3 rounded-xl font-bold transition-all hover:shadow-lg cursor-pointer group`}>
                                                 <FaPlay className="text-sm transition-transform group-hover:scale-110" />
                                                 <span>Start {module.name}</span>
                                                 <FaArrowRight className="text-sm transition-transform group-hover:translate-x-1" />
@@ -447,30 +657,13 @@ export default function ExamSelectionPage() {
                                 );
                             })}
                         </div>
-
-                        {/* Info Banner */}
-                        <div className="mt-8 bg-amber-50 border border-amber-200 rounded-lg p-5">
-                            <div className="flex items-start gap-4">
-                                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <FaQuestionCircle className="text-amber-600" />
-                                </div>
-                                <div>
-                                    <h4 className="text-gray-800 font-semibold mb-1">IELTS Band Score Information</h4>
-                                    <p className="text-gray-600 text-sm">
-                                        Most universities require Band 6.0-6.5 for undergraduate and 6.5-7.0 for graduate programs.
-                                        Practice regularly to improve your score!
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
                     </>
                 )}
             </div>
 
-            {/* Footer */}
             <footer className="bg-white border-t border-gray-200 py-4 px-4 mt-auto">
                 <div className="max-w-5xl mx-auto text-center text-gray-400 text-sm">
-                    © 2024 IELTS Exam - Mizan's Care. All rights reserved.
+                    © 2024 BAC IELTS ACADEMY • OFFICIAL EXAMINATION PORTAL
                 </div>
             </footer>
         </div>
