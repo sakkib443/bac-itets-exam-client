@@ -3,7 +3,9 @@
 // ═══════════════════════════════════════════
 
 export const QUESTION_TYPES = [
-    { value: "note-completion", label: "Note/Summary Completion", icon: "📝" },
+    { value: "note-completion", label: "Note/Sentence Completion", icon: "📝" },
+    { value: "table-completion", label: "Table Completion", icon: "📊" },
+    { value: "short-answer", label: "Short Answer Questions", icon: "✏️" },
     { value: "true-false-not-given", label: "True / False / Not Given", icon: "✅" },
     { value: "yes-no-not-given", label: "Yes / No / Not Given", icon: "🔘" },
     { value: "matching-information", label: "Matching Information", icon: "🔗" },
@@ -43,6 +45,50 @@ export function createGroupTemplate(type, startQ) {
                         textBefore: "", textAfter: "", correctAnswer: ""
                     }))
                 }]
+            };
+
+        case "table-completion":
+            return {
+                groupType: "table-completion", ...base,
+                endQuestion: startQ + 3,
+                mainInstruction: "Complete the table below.",
+                subInstruction: "Choose ONE WORD ONLY from the passage for each answer.",
+                tableTitle: "",
+                columns: ["", "Column 1", "Column 2", "Column 3"],
+                rows: [
+                    {
+                        label: "Row 1",
+                        cells: [
+                            { content: `${startQ} __________`, hasBlank: true },
+                            { content: `${startQ + 1} __________`, hasBlank: true },
+                            { content: "", hasBlank: false }
+                        ]
+                    },
+                    {
+                        label: "Row 2",
+                        cells: [
+                            { content: "", hasBlank: false },
+                            { content: `${startQ + 2} __________`, hasBlank: true },
+                            { content: `${startQ + 3} __________`, hasBlank: true }
+                        ]
+                    }
+                ],
+                answers: Array.from({ length: 4 }, (_, i) => ({
+                    questionNumber: startQ + i, correctAnswer: ""
+                }))
+            };
+
+        case "short-answer":
+            return {
+                groupType: "short-answer", ...base,
+                endQuestion: startQ + 4,
+                mainInstruction: "Answer the questions below.",
+                subInstruction: "Choose ONE WORD ONLY from the passage for each answer.",
+                questions: Array.from({ length: 5 }, (_, i) => ({
+                    questionNumber: startQ + i,
+                    questionText: "",
+                    correctAnswer: ""
+                }))
             };
 
         case "true-false-not-given":
@@ -220,6 +266,32 @@ export function generateQuestionsFromGroups(groups) {
                 }
                 break;
             }
+            case "table-completion": {
+                for (const ans of (group.answers || [])) {
+                    questions.push({
+                        questionNumber: ans.questionNumber,
+                        questionType: "table-completion",
+                        questionText: `Table blank Q${ans.questionNumber}`,
+                        correctAnswer: ans.correctAnswer,
+                        acceptableAnswers: [ans.correctAnswer],
+                        marks: 1, wordLimit: 2
+                    });
+                }
+                break;
+            }
+            case "short-answer": {
+                for (const q of (group.questions || [])) {
+                    questions.push({
+                        questionNumber: q.questionNumber,
+                        questionType: "short-answer",
+                        questionText: q.questionText,
+                        correctAnswer: q.correctAnswer,
+                        acceptableAnswers: [q.correctAnswer],
+                        marks: 1, wordLimit: 3
+                    });
+                }
+                break;
+            }
             case "true-false-not-given": {
                 for (const s of (group.statements || [])) {
                     questions.push({
@@ -341,6 +413,24 @@ export function renumberGroups(groups) {
                     })
                 }));
                 updated.notesSections = ns;
+                updated.endQuestion = qNum - 1;
+                break;
+            }
+            case "table-completion": {
+                updated.answers = (g.answers || []).map(a => {
+                    const item = { ...a, questionNumber: qNum };
+                    qNum++;
+                    return item;
+                });
+                updated.endQuestion = qNum - 1;
+                break;
+            }
+            case "short-answer": {
+                updated.questions = (g.questions || []).map(q => {
+                    const item = { ...q, questionNumber: qNum };
+                    qNum++;
+                    return item;
+                });
                 updated.endQuestion = qNum - 1;
                 break;
             }

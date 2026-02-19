@@ -292,6 +292,70 @@ export default function LivePreview({ sections, title }) {
                                 </div>
                             )}
 
+                            {/* ═══ TABLE COMPLETION ═══ */}
+                            {group.groupType === "table-completion" && (() => {
+                                const renderCell = (content) => {
+                                    if (!content) return null;
+                                    const parts = content.split(/(\d+\s*_{5,})/g);
+                                    return parts.map((part, pIdx) => {
+                                        const match = part.match(/(\d+)\s*_{5,}/);
+                                        if (match) {
+                                            const qNum = parseInt(match[1]);
+                                            const ans = (group.answers || []).find(a => a.questionNumber === qNum);
+                                            return (
+                                                <span key={pIdx} className="inline-flex items-center gap-1 mx-1 align-baseline">
+                                                    <span className="bg-white border border-gray-400 text-gray-800 text-xs font-bold px-1.5 py-0.5 rounded shadow-sm">{qNum}</span>
+                                                    <span className="border border-gray-300 rounded px-2 py-1 bg-green-50 w-24 h-7 inline-block text-xs text-green-700 font-medium leading-6">
+                                                        {ans?.correctAnswer || "answer"}
+                                                    </span>
+                                                </span>
+                                            );
+                                        }
+                                        return <span key={pIdx}>{part}</span>;
+                                    });
+                                };
+
+                                const cols = group.columns || [];
+                                const dataCols = cols.slice(1);
+
+                                return (
+                                    <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                                        <h3 className="text-lg font-bold text-gray-900 mb-1">Questions {group.startQuestion}–{group.endQuestion}</h3>
+                                        <p className="text-gray-800 font-medium mb-1">{group.mainInstruction}</p>
+                                        {group.subInstruction && <p className="text-gray-600 text-sm italic mb-3">{group.subInstruction}</p>}
+                                        {group.tableTitle && <h4 className="font-bold text-gray-900 mb-3">{group.tableTitle}</h4>}
+                                        <div className="overflow-x-auto border border-gray-300 rounded-lg">
+                                            <table className="w-full text-sm border-collapse">
+                                                <thead>
+                                                    <tr className="bg-gray-100">
+                                                        <th className="border border-gray-300 px-3 py-2 text-left font-bold text-gray-700 w-32">{cols[0] || ""}</th>
+                                                        {dataCols.map((col, i) => (
+                                                            <th key={i} className="border border-gray-300 px-3 py-2 text-left font-bold text-gray-700">{col}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {(group.rows || []).map((row, rIdx) => (
+                                                        <tr key={rIdx} className="hover:bg-gray-50">
+                                                            <td className="border border-gray-300 px-3 py-2 font-semibold text-gray-800 bg-gray-50 whitespace-pre-wrap">{row.label}</td>
+                                                            {dataCols.map((_, cIdx) => {
+                                                                const cell = (row.cells || [])[cIdx] || { content: "" };
+                                                                const hasBlank = /\d+\s*_{5,}/.test(cell.content || "");
+                                                                return (
+                                                                    <td key={cIdx} className={`border border-gray-300 px-3 py-2 text-gray-700 ${hasBlank ? "bg-amber-50" : ""}`}>
+                                                                        <span className="leading-relaxed">{renderCell(cell.content)}</span>
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
                             {/* ═══ CHOOSE TWO LETTERS ═══ */}
                             {group.groupType === "choose-two-letters" && (
                                 <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
@@ -331,6 +395,32 @@ export default function LivePreview({ sections, title }) {
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            )}
+
+                            {/* ═══ SHORT ANSWER QUESTIONS ═══ */}
+                            {group.groupType === "short-answer" && (
+                                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-1">Questions {group.startQuestion}–{group.endQuestion}</h3>
+                                    <p className="text-gray-800 font-medium mb-1">{group.mainInstruction || "Answer the questions below."}</p>
+                                    {group.subInstruction && (
+                                        <p className="text-blue-700 font-semibold mb-4 text-sm">
+                                            Choose <strong>{group.subInstruction.match(/ONE \w+ ONLY/)?.[0] || "ONE WORD ONLY"}</strong> from the passage for each answer.
+                                        </p>
+                                    )}
+                                    <div className="space-y-3 mt-3">
+                                        {(group.questions || []).map((q, idx) => (
+                                            <div key={idx} className="flex items-start gap-3">
+                                                <span className="border border-gray-400 text-gray-700 text-sm font-bold px-1.5 py-0.5 flex-shrink-0 mt-0.5">{q.questionNumber}</span>
+                                                <div className="flex-1">
+                                                    <span className="text-gray-800">{q.questionText || <span className="text-gray-400 italic">Question text...</span>}</span>
+                                                    {q.correctAnswer && (
+                                                        <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">✓ {q.correctAnswer}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
 
