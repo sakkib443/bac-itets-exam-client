@@ -60,7 +60,7 @@ export default function ExamSecurity({ examId, onViolationLimit = () => { } }) {
         const isNowFullscreen = !!document.fullscreenElement;
         setIsFullscreen(isNowFullscreen);
 
-        if (!isNowFullscreen && violations > 0) {
+        if (!isNowFullscreen) {
             setViolations(prev => {
                 const newCount = prev + 1;
                 if (newCount >= MAX_VIOLATIONS) {
@@ -71,6 +71,9 @@ export default function ExamSecurity({ examId, onViolationLimit = () => { } }) {
             setWarningType("fullscreen-exit");
             setShowWarning(true);
             reportViolation("fullscreen-exit");
+        } else {
+            // If they returned to fullscreen, we can hide the warning
+            setShowWarning(false);
         }
     }, [violations, reportViolation, onViolationLimit]);
 
@@ -79,16 +82,29 @@ export default function ExamSecurity({ examId, onViolationLimit = () => { } }) {
         e.preventDefault();
         setWarningType("right-click");
         setShowWarning(true);
+        // Automatically hide transient warnings like right-click after 3 seconds
+        setTimeout(() => setShowWarning(prev => {
+            if (["right-click", "copy-paste", "keyboard-shortcut", "screenshot", "print"].includes(warningType)) {
+                return false;
+            }
+            return prev;
+        }), 3000);
         return false;
-    }, []);
+    }, [warningType]);
 
     // Detect copy/cut/paste
     const handleCopyPaste = useCallback((e) => {
         e.preventDefault();
         setWarningType("copy-paste");
         setShowWarning(true);
+        setTimeout(() => setShowWarning(prev => {
+            if (["right-click", "copy-paste", "keyboard-shortcut", "screenshot", "print"].includes(warningType)) {
+                return false;
+            }
+            return prev;
+        }), 3000);
         return false;
-    }, []);
+    }, [warningType]);
 
     // Block text selection (except in TextHighlighter and inputs)
     const handleSelectStart = useCallback((e) => {
@@ -264,6 +280,14 @@ export default function ExamSecurity({ examId, onViolationLimit = () => { } }) {
         };
     }, [handleVisibilityChange, handleFullscreenChange, handleContextMenu, handleCopyPaste, handleKeyDown, handleSelectStart, handleBlur, requestFullscreen]);
 
+    // Force warning if not in fullscreen and not in dev mode
+    useEffect(() => {
+        if (!DEV_MODE && !isFullscreen) {
+            setWarningType("fullscreen-exit");
+            setShowWarning(true);
+        }
+    }, [isFullscreen]);
+
     // In DEV_MODE, skip rendering security UI
     if (DEV_MODE) return null;
 
@@ -362,26 +386,30 @@ export default function ExamSecurity({ examId, onViolationLimit = () => { } }) {
                         </p>
 
                         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                            <p className="text-red-700 font-semibold">
-                                Violation Count: {violations} of {MAX_VIOLATIONS}
+                            <p className="text-red-700 font-semibold text-lg">
+                                {warningType === "fullscreen-exit" ? "Action Required" : `Violation Count: ${violations} of ${MAX_VIOLATIONS}`}
                             </p>
                             <p className="text-red-600 text-sm mt-1">
-                                {violations >= MAX_VIOLATIONS
-                                    ? "Maximum violations reached. Your exam may be terminated."
-                                    : `${MAX_VIOLATIONS - violations} more violation(s) will result in exam termination.`
+                                {warningType === "fullscreen-exit"
+                                    ? "Full screen is mandatory during the exam. Content is hidden until you return to full screen."
+                                    : (violations >= MAX_VIOLATIONS
+                                        ? "Maximum violations reached. Your exam may be terminated."
+                                        : `${MAX_VIOLATIONS - violations} more violation(s) will result in exam termination.`)
                                 }
                             </p>
                         </div>
 
                         <button
                             onClick={() => {
-                                setShowWarning(false);
                                 requestFullscreen();
+                                if (document.fullscreenElement) {
+                                    setShowWarning(false);
+                                }
                             }}
-                            className="w-full bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                            className="w-full bg-red-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-red-700 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
                         >
-                            <FaTimes />
-                            Acknowledge & Continue
+                            <FaShieldAlt />
+                            {warningType === "fullscreen-exit" ? "Re-enter Full Screen" : "Acknowledge & Continue"}
                         </button>
                     </div>
                 </div>
