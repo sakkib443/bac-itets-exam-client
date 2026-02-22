@@ -1,5 +1,5 @@
 export default function Logo({ className = "", size = "default" }) {
-    const heightClass = size === "small" ? "h-10" : size === "large" ? "h-16" : "h-14";
+    const heightClass = size === "small" ? "h-6" : size === "large" ? "h-12" : "h-9";
 
     return (
         <div className={`flex items-center gap-3 ${className}`}>

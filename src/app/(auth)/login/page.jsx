@@ -6,6 +6,7 @@ import { MdOutlineRemoveRedEye, MdOutlineVisibilityOff } from "react-icons/md";
 import { FiMail, FiLock, FiAlertCircle } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import { authAPI } from "@/lib/api";
+import Logo from "@/components/Logo";
 
 const Login = () => {
   const router = useRouter();
@@ -192,12 +193,8 @@ const Login = () => {
       >
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-block bg-white px-3 py-1 rounded-xl shadow-lg border border-white/20">
-            <img
-              src="/images/IMG_5177.PNG"
-              alt="Mizan's Care | idp IELTS Official Test Venue"
-              className="h-12 w-auto object-contain"
-            />
+          <Link href="/" className="inline-block bg-white px-5 py-2 rounded-xl shadow-lg border border-white/20">
+            <Logo size="small" />
           </Link>
         </div>
 
