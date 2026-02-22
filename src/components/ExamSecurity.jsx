@@ -19,7 +19,7 @@ import { studentsAPI } from "@/lib/api";
  * ⚠️ DEV_MODE: Set to true to disable security during development.
  *    Set to false for production/deployment.
  */
-const DEV_MODE = true; // 🔧 Toggle this: true = security OFF, false = security ON
+const DEV_MODE = false; // 🔧 Toggle this: true = security OFF, false = security ON
 
 export default function ExamSecurity({ examId, onViolationLimit = () => { } }) {
     const [violations, setViolations] = useState(0);
