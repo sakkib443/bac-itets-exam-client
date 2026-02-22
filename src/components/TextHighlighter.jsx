@@ -85,9 +85,10 @@ export default function TextHighlighter({ children, passageId = "default" }) {
             const containerRect = containerRef.current?.getBoundingClientRect();
 
             if (containerRect && rect.width > 0 && rect.height > 0) {
+                // Use viewport coords for fixed positioning (avoids overflow clipping)
                 setToolbarPosition({
-                    x: rect.left - containerRect.left + rect.width / 2,
-                    y: rect.bottom - containerRect.top + 8,
+                    x: rect.left + rect.width / 2,
+                    y: rect.bottom + 8,
                 });
                 setSelectedText(text);
 
@@ -330,9 +331,10 @@ export default function TextHighlighter({ children, passageId = "default" }) {
                 const containerRect = containerRef.current?.getBoundingClientRect();
 
                 if (containerRect) {
+                    // Use viewport coords for fixed positioning
                     setHoverPopupPosition({
-                        x: rect.left - containerRect.left + rect.width / 2,
-                        y: rect.top - containerRect.top - 8,
+                        x: rect.left + rect.width / 2,
+                        y: rect.top - 8,
                     });
                     setHoveredHighlightId(highlightId);
                     setHoveredHighlightData({ ...highlight, note });
@@ -456,7 +458,7 @@ export default function TextHighlighter({ children, passageId = "default" }) {
                 hoveredHighlightData.note ? (
                     /* Sticky Note Popup for highlights with notes */
                     <div
-                        className="hover-popup absolute z-50"
+                        className="hover-popup fixed z-[9999]"
                         style={{
                             left: `${hoverPopupPosition.x}px`,
                             top: `${hoverPopupPosition.y}px`,
@@ -507,7 +509,7 @@ export default function TextHighlighter({ children, passageId = "default" }) {
                 ) : (
                     /* Simple popup for highlights without notes - also click based */
                     <div
-                        className="hover-popup absolute z-50 bg-gray-800 rounded-lg shadow-xl p-1.5 border border-gray-700"
+                        className="hover-popup fixed z-[9999] bg-gray-800 rounded-lg shadow-xl p-1.5 border border-gray-700"
                         style={{
                             left: `${hoverPopupPosition.x}px`,
                             top: `${hoverPopupPosition.y}px`,
@@ -537,7 +539,7 @@ export default function TextHighlighter({ children, passageId = "default" }) {
             {/* Floating Toolbar - Shows when selecting text */}
             {showToolbar && (
                 <div
-                    className="highlight-toolbar absolute z-50 flex items-center gap-1 bg-gray-800 rounded-lg shadow-xl p-1.5 border border-gray-700"
+                    className="highlight-toolbar fixed z-[9999] flex items-center gap-1 bg-gray-800 rounded-lg shadow-xl p-1.5 border border-gray-700"
                     style={{
                         left: `${toolbarPosition.x}px`,
                         top: `${toolbarPosition.y}px`,

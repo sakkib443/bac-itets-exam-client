@@ -6,10 +6,42 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
     FaArrowLeft, FaSpinner, FaSave, FaHeadphones, FaTimes, FaCheck,
     FaPlus, FaTrash, FaChevronDown, FaChevronUp, FaEye, FaEyeSlash,
-    FaCode, FaCopy, FaVolumeUp, FaGripVertical,
+    FaCode, FaCopy, FaVolumeUp, FaGripVertical, FaImage, FaUpload,
 } from "react-icons/fa";
-import { listeningAPI } from "@/lib/api";
+import { listeningAPI, uploadImage, uploadAudio } from "@/lib/api";
 import ListeningPreview from "@/components/listening/ListeningPreview";
+
+// ═══════════════════════════════════════════════════════
+// Audio Upload Button (reusable)
+// ═══════════════════════════════════════════════════════
+function AudioUploadBtn({ onUploaded }) {
+    const [uploading, setUploading] = React.useState(false);
+
+    const handleFile = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploading(true);
+        try {
+            const res = await uploadAudio(file);
+            if (res?.data?.url) {
+                onUploaded(res.data.url);
+            }
+        } catch (err) {
+            alert("Audio upload failed: " + (err.message || "Unknown error"));
+        } finally {
+            setUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    return (
+        <label className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-medium cursor-pointer hover:bg-indigo-700 transition-colors whitespace-nowrap">
+            {uploading ? <FaSpinner className="animate-spin" size={11} /> : <FaUpload size={11} />}
+            {uploading ? 'Uploading...' : 'Upload'}
+            <input type="file" accept="audio/*" onChange={handleFile} className="hidden" disabled={uploading} />
+        </label>
+    );
+}
 
 // ═══════════════════════════════════════════════════════
 // CONSTANTS
@@ -19,11 +51,15 @@ const QUESTION_TYPES = [
     { value: "form-completion", label: "Form Completion" },
     { value: "table-completion", label: "Table Completion" },
     { value: "multiple-choice", label: "Multiple Choice (A/B/C)" },
+    { value: "multiple-choice-multi", label: "Multiple Choice (Multi-Select)" },
     { value: "matching", label: "Matching" },
-    { value: "map-labelling", label: "Map/Plan Labelling" },
+    { value: "matching-features", label: "Matching Features" },
+    { value: "map-labeling", label: "Map/Plan Labelling" },
+    { value: "diagram-labeling", label: "Diagram Labelling" },
     { value: "short-answer", label: "Short Answer" },
     { value: "sentence-completion", label: "Sentence Completion" },
     { value: "summary-completion", label: "Summary Completion" },
+    { value: "flow-chart-completion", label: "Flow Chart Completion" },
 ];
 
 function emptySection(num) {
@@ -82,10 +118,72 @@ function QuestionBlock({ block, index, onChange, onDelete, questionNumber }) {
     }
 
     // Question block
-    const isMultipleChoice = ["multiple-choice", "matching"].includes(block.questionType);
+    const isMultipleChoice = ["multiple-choice", "multiple-choice-multi", "matching", "matching-features", "map-labeling", "diagram-labeling"].includes(block.questionType);
+    const isMapDiagram = ["map-labeling", "diagram-labeling"].includes(block.questionType);
+    const [uploading, setUploading] = useState(false);
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploading(true);
+        try {
+            const result = await uploadImage(file);
+            if (result.success && result.data?.url) {
+                onChange({ ...block, imageUrl: result.data.url });
+            }
+        } catch (err) {
+            console.error("Image upload failed:", err);
+            alert("Image upload failed: " + err.message);
+        } finally {
+            setUploading(false);
+        }
+    };
 
     return (
         <div className="border border-indigo-100 bg-white rounded-lg p-3">
+            {/* Image Upload for Map/Diagram types */}
+            {isMapDiagram && (
+                <div className="mb-3 p-3 border border-dashed border-blue-300 bg-blue-50 rounded-lg">
+                    <label className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1.5">
+                        <FaImage size={11} /> Map / Diagram Image
+                    </label>
+                    {block.imageUrl ? (
+                        <div className="relative">
+                            <img src={block.imageUrl} alt="Map/Diagram" className="max-h-48 rounded border border-gray-200 mb-2" />
+                            <div className="flex items-center gap-2">
+                                <input
+                                    value={block.imageUrl}
+                                    onChange={e => onChange({ ...block, imageUrl: e.target.value })}
+                                    className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 outline-none font-mono bg-white"
+                                    placeholder="Image URL"
+                                />
+                                <button
+                                    onClick={() => onChange({ ...block, imageUrl: '' })}
+                                    className="text-xs text-red-500 hover:text-red-700 cursor-pointer"
+                                >
+                                    <FaTimes size={10} /> Remove
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded text-xs font-medium cursor-pointer hover:bg-blue-700 transition-colors">
+                                {uploading ? <FaSpinner className="animate-spin" size={10} /> : <FaUpload size={10} />}
+                                {uploading ? 'Uploading...' : 'Upload Image'}
+                                <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploading} />
+                            </label>
+                            <span className="text-[10px] text-gray-400">or paste URL below</span>
+                            <input
+                                value={block.imageUrl || ''}
+                                onChange={e => onChange({ ...block, imageUrl: e.target.value })}
+                                className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 outline-none font-mono"
+                                placeholder="https://..."
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                     <span className="w-6 h-6 bg-indigo-600 text-white rounded text-xs font-bold flex items-center justify-center">
@@ -280,14 +378,30 @@ function SectionPanel({ section, onChange }) {
                         <div className="col-span-2">
                             <label className="text-xs font-semibold text-gray-600 mb-1 flex items-center gap-2">
                                 <FaVolumeUp className="text-indigo-500" size={11} />
-                                Part Audio URL (optional)
+                                Part Audio (optional)
                             </label>
-                            <input
-                                value={section.audioUrl}
-                                onChange={e => onChange({ ...section, audioUrl: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 font-mono"
-                                placeholder="https://..."
-                            />
+                            <div className="flex items-center gap-2">
+                                <input
+                                    value={section.audioUrl}
+                                    onChange={e => onChange({ ...section, audioUrl: e.target.value })}
+                                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 font-mono"
+                                    placeholder="https://... or upload →"
+                                />
+                                <AudioUploadBtn
+                                    onUploaded={(url) => onChange({ ...section, audioUrl: url })}
+                                />
+                                {section.audioUrl && (
+                                    <button type="button" onClick={() => onChange({ ...section, audioUrl: '' })}
+                                        className="text-red-400 hover:text-red-600 cursor-pointer p-1">
+                                        <FaTimes size={12} />
+                                    </button>
+                                )}
+                            </div>
+                            {section.audioUrl && (
+                                <div className="mt-1 flex items-center gap-2 text-[10px] text-green-600">
+                                    <FaCheck size={8} /> Audio set
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -517,8 +631,8 @@ function CreateListeningPageContent() {
                     <button
                         type="button" onClick={() => setShowPreview(!showPreview)}
                         className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors ${showPreview
-                                ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
-                                : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                            ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                            : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
                             }`}
                     >
                         {showPreview ? <FaEyeSlash size={11} /> : <FaEye size={11} />} Preview
@@ -610,14 +724,30 @@ function CreateListeningPageContent() {
                     <div className="col-span-2">
                         <label className="text-xs font-semibold text-gray-600 block mb-1 flex items-center gap-1.5">
                             <FaVolumeUp className="text-indigo-500" size={11} />
-                            Main Audio URL (full test audio)
+                            Main Audio (full test audio)
                         </label>
-                        <input
-                            value={formData.mainAudioUrl}
-                            onChange={e => setFormData(prev => ({ ...prev, mainAudioUrl: e.target.value }))}
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-400 font-mono"
-                            placeholder="https://..."
-                        />
+                        <div className="flex items-center gap-2">
+                            <input
+                                value={formData.mainAudioUrl}
+                                onChange={e => setFormData(prev => ({ ...prev, mainAudioUrl: e.target.value }))}
+                                className="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-400 font-mono"
+                                placeholder="https://... or upload →"
+                            />
+                            <AudioUploadBtn
+                                onUploaded={(url) => setFormData(prev => ({ ...prev, mainAudioUrl: url }))}
+                            />
+                            {formData.mainAudioUrl && (
+                                <button type="button" onClick={() => setFormData(prev => ({ ...prev, mainAudioUrl: '' }))}
+                                    className="text-red-400 hover:text-red-600 cursor-pointer p-1">
+                                    <FaTimes size={12} />
+                                </button>
+                            )}
+                        </div>
+                        {formData.mainAudioUrl && (
+                            <div className="mt-1.5 flex items-center gap-2 text-xs text-green-600">
+                                <FaCheck size={9} /> Audio set
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="text-xs font-semibold text-gray-600 block mb-1">Difficulty</label>

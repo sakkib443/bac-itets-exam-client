@@ -63,6 +63,48 @@ const apiRequest = async (endpoint, options = {}) => {
     }
 };
 
+// Upload image to Cloudinary via backend
+export const uploadImage = async (file) => {
+    const token = getAuthToken();
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const response = await fetch(`${API_BASE_URL}/upload/image`, {
+        method: "POST",
+        headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.message || "Failed to upload image");
+    }
+    return data;
+};
+
+// Upload audio to Cloudinary via backend
+export const uploadAudio = async (file) => {
+    const token = getAuthToken();
+    const formData = new FormData();
+    formData.append("audio", file);
+
+    const response = await fetch(`${API_BASE_URL}/upload/audio`, {
+        method: "POST",
+        headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.message || "Failed to upload audio");
+    }
+    return data;
+};
+
 // ================== AUTH API ==================
 export const authAPI = {
     login: async (email, password) => {

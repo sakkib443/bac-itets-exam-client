@@ -3,218 +3,404 @@ import React, { useState } from "react";
 import { FaHeadphones, FaVolumeUp, FaCheck } from "react-icons/fa";
 
 // ══════════════════════════════════════════════════════════
-// Renders one question block in official IELTS preview style
+//  buildRenderGroups — SAME as exam page
+//  Groups consecutive same-type questions together
 // ══════════════════════════════════════════════════════════
-function PreviewQuestion({ block }) {
-    const qType = block.questionType || "fill-in-blank";
-    const isTextInput = [
-        "note-completion", "form-completion", "table-completion",
-        "sentence-completion", "summary-completion", "short-answer",
-        "map-labelling",
-        "fill-in-blank"
-    ].includes(qType);
+function buildRenderGroups(blocks) {
+    const groups = [];
+    let i = 0;
+    while (i < blocks.length) {
+        const b = blocks[i];
+        if (b.blockType === 'instruction') {
+            groups.push({ type: 'instruction', block: b });
+            i++; continue;
+        }
+        const qType = b.questionType || 'fill-in-blank';
+        const group = [b];
+        let j = i + 1;
+        if (['matching', 'multiple-choice-multi', 'matching-features', 'matching-headings', 'map-labeling', 'diagram-labeling'].includes(qType)) {
+            while (j < blocks.length && blocks[j].blockType !== 'instruction' && blocks[j].questionType === qType) {
+                group.push(blocks[j]); j++;
+            }
+        }
+        groups.push({ type: qType, blocks: group });
+        i = j;
+    }
+    return groups;
+}
 
-    const isMultipleChoice = qType === "multiple-choice" || qType === "multiple-choice-multi";
-    const isMatching = qType.startsWith("matching");
+// ══════════════════════════════════════════════════════════
+//  NoteCompletionRow — SAME style as exam page
+//  but shows correct answer in green instead of input
+// ══════════════════════════════════════════════════════════
+function NoteCompletionRow({ q }) {
+    const raw = q.questionText || '';
+    const hasBlank = /_{2,}|\{blank\}|\[\d+\]/.test(raw);
 
-    // Clean text logic (mirroring exam page)
-    const rawText = block.questionText || '';
-    const cleanText = rawText
-        .replace(/_{1,}/g, '')            // Remove underscores
-        .replace(/\{blank\}/g, '')        // Remove placeholders
-        .replace(/\[\d+\]/g, '')          // Remove [15] patterns
-        .trim();
-
-    // Standard Number Box style
-    const NumberBox = (
-        <span style={{
-            border: '1px solid #374151', fontWeight: 'bold', fontSize: '11px',
-            padding: '0 5px', color: '#111827', background: 'white',
-            lineHeight: '1.6', flexShrink: 0, borderRadius: '2px', display: 'inline-block', verticalAlign: 'middle'
-        }}>
-            {block.questionNumber}
-        </span>
-    );
-
-    // ── Note / Table / Sentence Completion: Inline style ──
-    if (isTextInput) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '12px', fontSize: '14px', color: '#111827', lineHeight: '1.8' }}>
-                <span style={{ flexShrink: 0, marginTop: '2px' }}>•</span>
-                <div style={{ flex: 1 }}>
-                    <span style={{ verticalAlign: 'middle' }}>{cleanText}</span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', verticalAlign: 'middle', marginLeft: '6px' }}>
-                        {NumberBox}
-                        <div style={{
-                            border: '1px solid #d1d5db', width: '150px',
-                            minHeight: '28px', background: '#f9fafb',
-                            color: '#059669', padding: '2px 8px', borderRadius: '2px',
-                            fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center'
+    if (hasBlank) {
+        const parts = raw.split(/_{2,}|\{blank\}|\[\d+\]/);
+        const segments = [];
+        parts.forEach((part, pIdx) => {
+            if (part.trim()) segments.push(<span key={`t-${pIdx}`}>{part}</span>);
+            if (pIdx < parts.length - 1) {
+                segments.push(
+                    <span key={`b-${pIdx}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', verticalAlign: 'middle', margin: '0 3px' }}>
+                        <span style={{
+                            border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
+                            padding: '0 6px', color: '#111827', background: 'white',
+                            lineHeight: '1.8', borderRadius: '2px'
+                        }}>{q.questionNumber}</span>
+                        <span style={{
+                            display: 'inline-block', border: '1px solid #d1d5db', width: '140px',
+                            padding: '2px 8px', background: q.correctAnswer ? '#ecfdf5' : '#f9fafb',
+                            color: q.correctAnswer ? '#059669' : '#9ca3af',
+                            fontWeight: 'bold', fontSize: '13px', borderRadius: '2px', minHeight: '26px',
+                            lineHeight: '22px'
                         }}>
-                            {block.correctAnswer || "No answer set"}
-                        </div>
+                            {q.correctAnswer || ''}
+                        </span>
                     </span>
-                </div>
-            </div>
+                );
+            }
+        });
+        return (
+            <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '15px', color: '#1f2937', lineHeight: '2' }}>
+                <span style={{ marginTop: '4px', flexShrink: 0 }}>•</span>
+                <span style={{ flex: 1 }}>{segments}</span>
+            </li>
         );
     }
 
-    // ── Multiple Choice ──
-    if (isMultipleChoice) {
-        return (
-            <div style={{ marginBottom: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
-                    {NumberBox}
-                    <span style={{ color: '#1f2937', fontSize: '14px', fontWeight: 'bold', lineHeight: '1.5' }}>{cleanText}</span>
+    // No inline blank — show [N] + text + answer box
+    const cleanText = raw.replace(/_{1,}/g, '').replace(/\{blank\}/g, '').replace(/\[\d+\]/g, '').trim();
+    return (
+        <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '15px', color: '#1f2937', lineHeight: '2' }}>
+            <span style={{ marginTop: '4px', flexShrink: 0 }}>•</span>
+            <span style={{ flex: 1 }}>
+                {cleanText}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', verticalAlign: 'middle', marginLeft: '6px' }}>
+                    <span style={{
+                        border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
+                        padding: '0 6px', color: '#111827', background: 'white',
+                        lineHeight: '1.8', borderRadius: '2px'
+                    }}>{q.questionNumber}</span>
+                    <span style={{
+                        display: 'inline-block', border: '1px solid #d1d5db', width: '140px',
+                        padding: '2px 8px', background: q.correctAnswer ? '#ecfdf5' : '#f9fafb',
+                        color: q.correctAnswer ? '#059669' : '#9ca3af',
+                        fontWeight: 'bold', fontSize: '13px', borderRadius: '2px', minHeight: '26px',
+                        lineHeight: '22px'
+                    }}>
+                        {q.correctAnswer || ''}
+                    </span>
+                </span>
+            </span>
+        </li>
+    );
+}
+
+// ══════════════════════════════════════════════════════════
+//  Main Preview Component
+// ══════════════════════════════════════════════════════════
+export default function ListeningPreview({ sections, title, mainAudioUrl }) {
+    const [activePart, setActivePart] = useState(0);
+    const currentSection = sections[activePart] || {};
+    const blocks = currentSection.questions || [];
+    const questionBlocks = blocks.filter(b => b.blockType === "question");
+
+    const renderGroups = buildRenderGroups(blocks);
+
+    return (
+        <div style={{ backgroundColor: '#fff', border: '1px solid #d1d5db', borderRadius: '8px', overflow: 'hidden', fontFamily: "'Arial', sans-serif", fontSize: '14px' }}>
+
+            {/* ══ Header ══ */}
+            <header style={{ backgroundColor: '#fff', borderBottom: '1px solid #ccc', height: '44px', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%', padding: '0 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <span style={{ fontWeight: 'bold', color: '#d40000', fontSize: '20px', fontStyle: 'italic', letterSpacing: '-0.5px' }}>IELTS</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#6b7280' }}>
+                            <FaVolumeUp size={11} />
+                            <span>Admin Preview</span>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '11px', background: '#ecfdf5', color: '#059669', padding: '2px 8px', borderRadius: '3px', fontWeight: 'bold' }}>
+                            ✓ Correct answers shown
+                        </span>
+                    </div>
                 </div>
-                <div style={{ marginLeft: '34px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {(block.options || []).map((opt, oIdx) => {
-                        const letter = String.fromCharCode(65 + oIdx);
-                        const text = opt.replace(/^[A-Z]\.\s*/, "");
-                        const isCorrect = block.correctAnswer && (block.correctAnswer.includes(letter) || block.correctAnswer === letter);
-                        return (
-                            <div key={oIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                                <span style={{ fontWeight: 'bold', width: '16px', flexShrink: 0, fontSize: '13px' }}>{letter}</span>
-                                <div style={{
-                                    width: '16px', height: '16px', border: `1px solid ${isCorrect ? '#059669' : '#d1d5db'}`,
-                                    background: isCorrect ? '#059669' : 'white', flexShrink: 0, marginTop: '2px',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%'
-                                }}>
-                                    {isCorrect && <div style={{ width: '6px', height: '6px', background: 'white', borderRadius: '50%' }} />}
+            </header>
+
+            {/* Part Banner — gray bar (same as exam) */}
+            <div style={{ backgroundColor: '#e5e7eb', borderBottom: '1px solid #d1d5db', padding: '5px 16px', flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: '2px' }}>
+                    {sections.map((_, idx) => (
+                        <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setActivePart(idx)}
+                            style={{
+                                padding: '4px 14px', fontSize: '13px', fontWeight: activePart === idx ? 'bold' : 'normal',
+                                background: activePart === idx ? '#fff' : 'transparent',
+                                color: activePart === idx ? '#1f2937' : '#4b5563',
+                                border: activePart === idx ? '1px solid #d1d5db' : '1px solid transparent',
+                                borderBottom: activePart === idx ? '1px solid #fff' : 'none',
+                                borderRadius: '3px 3px 0 0', cursor: 'pointer', marginBottom: '-6px'
+                            }}
+                        >
+                            Part {idx + 1}
+                        </button>
+                    ))}
+                </div>
+                <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '6px' }}>
+                    {currentSection.instructions || `Part ${activePart + 1}`}
+                </div>
+            </div>
+
+            {/* ══ Scrollable Content ══ */}
+            <div style={{ overflowY: 'auto', maxHeight: '70vh', paddingBottom: '56px' }}>
+                <div style={{ maxWidth: '1000px', padding: '30px 60px' }}>
+
+                    {/* Section image if any */}
+                    {currentSection.imageUrl && (
+                        <div style={{ marginBottom: '16px' }}>
+                            <img src={currentSection.imageUrl} alt="Section diagram" style={{ maxWidth: '100%', maxHeight: '400px' }} />
+                        </div>
+                    )}
+
+                    {blocks.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af' }}>
+                            <FaHeadphones size={40} style={{ margin: '0 auto 10px', opacity: 0.2 }} />
+                            <p style={{ fontStyle: 'italic', fontSize: '14px' }}>No questions in Part {activePart + 1}</p>
+                        </div>
+                    )}
+
+                    {/* ══ Render Groups — same as exam page ══ */}
+                    {renderGroups.map((grp, gIdx) => {
+
+                        // ── Instruction block ──
+                        if (grp.type === 'instruction') {
+                            return (
+                                <div key={gIdx} style={{ marginBottom: '12px', lineHeight: '1.6', color: '#1f2937' }}
+                                    dangerouslySetInnerHTML={{ __html: grp.block.content || '' }} />
+                            );
+                        }
+
+                        const grpBlocks = grp.blocks;
+                        const firstB = grpBlocks[0];
+
+                        // ── Fill-in-blank / Note-completion / Sentence-completion ──
+                        if (['fill-in-blank', 'note-completion', 'sentence-completion', 'form-completion', 'table-completion', 'summary-completion', 'short-answer', 'flow-chart-completion'].includes(grp.type)) {
+                            return (
+                                <div key={gIdx} style={{ marginBottom: '20px' }}>
+                                    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {grpBlocks.map(q => (
+                                            <NoteCompletionRow key={q.questionNumber} q={q} />
+                                        ))}
+                                    </ul>
                                 </div>
-                                <span style={{ color: isCorrect ? '#059669' : '#374151', fontWeight: isCorrect ? 'bold' : 'normal', fontSize: '13px' }}>{text}</span>
-                                {isCorrect && <FaCheck className="text-green-600 mt-1" size={10} />}
+                            );
+                        }
+
+                        // ── Multiple Choice ──
+                        if (grp.type === 'multiple-choice' || grp.type === 'multiple-choice-multi') {
+                            const isMultiSelect = grp.type === 'multiple-choice-multi';
+                            const qNumbers = grpBlocks.map(b => b.questionNumber);
+
+                            // ── Multi-Select: ONE block with [21][22] ──
+                            if (isMultiSelect) {
+                                return (
+                                    <div key={gIdx} style={{ marginBottom: '24px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                            {qNumbers.map(n => (
+                                                <span key={n} style={{
+                                                    border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
+                                                    padding: '0 6px', color: '#111827', background: 'white',
+                                                    lineHeight: '1.8', flexShrink: 0, borderRadius: '2px', marginTop: '2px'
+                                                }}>{n}</span>
+                                            ))}
+                                            <span style={{ color: '#1f2937', fontSize: '15px', lineHeight: '1.5' }}>{firstB.questionText}</span>
+                                        </div>
+                                        <div style={{ marginLeft: '34px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {(firstB.options || []).map((opt, oIdx) => {
+                                                const letter = String.fromCharCode(65 + oIdx);
+                                                const text = (opt || '').replace(/^[A-Z]\.\s*/, '');
+                                                const isCorrect = grpBlocks.some(q => q.correctAnswer && (q.correctAnswer === letter || (Array.isArray(q.correctAnswer) && q.correctAnswer.includes(letter))));
+                                                return (
+                                                    <div key={oIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                                        <span style={{ fontWeight: 'bold', width: '16px', flexShrink: 0, fontSize: '14px' }}>{letter}</span>
+                                                        <div style={{
+                                                            width: '18px', height: '18px', border: `1px solid ${isCorrect ? '#059669' : '#d1d5db'}`,
+                                                            background: isCorrect ? '#059669' : 'white', flexShrink: 0, marginTop: '1px',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '3px'
+                                                        }}>
+                                                            {isCorrect && <svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" stroke="white" strokeWidth="2" fill="none" /></svg>}
+                                                        </div>
+                                                        <span style={{ color: isCorrect ? '#059669' : '#374151', fontWeight: isCorrect ? '600' : '400', fontSize: '14px' }}>{text}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // ── Single-Select MCQ: each question separately ──
+                            return (
+                                <div key={gIdx} style={{ marginBottom: '24px' }}>
+                                    {grpBlocks.map((q) => {
+                                        return (
+                                            <div key={q.questionNumber} style={{ marginBottom: '16px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
+                                                    <span style={{
+                                                        border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
+                                                        padding: '0 6px', color: '#111827', background: 'white',
+                                                        lineHeight: '1.8', flexShrink: 0, borderRadius: '2px', marginTop: '2px'
+                                                    }}>{q.questionNumber}</span>
+                                                    <span style={{ color: '#1f2937', fontSize: '15px', lineHeight: '1.5' }}>{q.questionText}</span>
+                                                </div>
+                                                <div style={{ marginLeft: '34px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {(q.options || []).map((opt, oIdx) => {
+                                                        const letter = String.fromCharCode(65 + oIdx);
+                                                        const text = (opt || '').replace(/^[A-Z]\.\s*/, '');
+                                                        const isCorrect = q.correctAnswer === letter;
+                                                        return (
+                                                            <div key={oIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                                                <span style={{ fontWeight: 'bold', width: '16px', flexShrink: 0, fontSize: '14px' }}>{letter}</span>
+                                                                <div style={{
+                                                                    width: '18px', height: '18px', border: `1px solid ${isCorrect ? '#059669' : '#d1d5db'}`,
+                                                                    background: isCorrect ? '#059669' : 'white', flexShrink: 0, marginTop: '1px',
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%'
+                                                                }}>
+                                                                    {isCorrect && <div style={{ width: '6px', height: '6px', background: 'white', borderRadius: '50%' }} />}
+                                                                </div>
+                                                                <span style={{ color: isCorrect ? '#059669' : '#374151', fontWeight: isCorrect ? '600' : '400', fontSize: '14px' }}>{text}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        }
+
+                        // ── Matching / Matching Features ──
+                        if (grp.type === 'matching' || grp.type === 'matching-features' || grp.type === 'matching-headings') {
+                            const hasLongOpts = (firstB.options || []).some(o => (o || '').length > 4);
+                            return (
+                                <div key={gIdx} style={{ marginBottom: '20px' }}>
+                                    {/* Options list box for long options */}
+                                    {hasLongOpts && (
+                                        <div style={{ border: '1px solid #d1d5db', marginBottom: '12px', maxWidth: '480px' }}>
+                                            {(firstB.options || []).map((opt, oIdx) => {
+                                                const letter = (opt || '').match(/^([A-Z])\./)?.[1] || String.fromCharCode(65 + oIdx);
+                                                const text = (opt || '').replace(/^[A-Z]\.\s*/, '');
+                                                return (
+                                                    <div key={oIdx} style={{ display: 'flex', gap: '12px', padding: '5px 10px', borderBottom: oIdx < (firstB.options.length - 1) ? '1px solid #e5e7eb' : 'none', fontSize: '13px' }}>
+                                                        <span style={{ fontWeight: 'bold', width: '16px', flexShrink: 0 }}>{letter}</span>
+                                                        <span style={{ color: '#374151' }}>{text}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '600px' }}>
+                                        {grpBlocks.map(q => (
+                                            <div key={q.questionNumber} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span style={{
+                                                    border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
+                                                    padding: '0 6px', color: '#111827', background: 'white',
+                                                    lineHeight: '1.8', flexShrink: 0, borderRadius: '2px'
+                                                }}>{q.questionNumber}</span>
+                                                <span style={{ flex: 1, color: '#1f2937', fontSize: '15px' }}>{q.questionText}</span>
+                                                {/* Show answer instead of dropdown */}
+                                                <div style={{
+                                                    border: '1px solid #d1d5db', padding: '4px 8px', fontSize: '14px',
+                                                    background: q.correctAnswer ? '#ecfdf5' : 'white',
+                                                    color: q.correctAnswer ? '#059669' : '#9ca3af',
+                                                    fontWeight: 'bold', width: '70px', textAlign: 'center', borderRadius: '2px'
+                                                }}>
+                                                    {q.correctAnswer || '—'}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        // ── Map / Diagram Labeling ──
+                        if (grp.type === 'map-labeling' || grp.type === 'diagram-labeling') {
+                            return (
+                                <div key={gIdx} style={{ marginBottom: '20px' }}>
+                                    {firstB.imageUrl && (
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <img src={firstB.imageUrl} alt="Map/Diagram" style={{ maxWidth: '100%', maxHeight: '400px', border: '1px solid #d1d5db' }} />
+                                        </div>
+                                    )}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '500px' }}>
+                                        {grpBlocks.map(q => (
+                                            <div key={q.questionNumber} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span style={{
+                                                    border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
+                                                    padding: '0 6px', color: '#111827', background: 'white',
+                                                    lineHeight: '1.8', flexShrink: 0, borderRadius: '2px'
+                                                }}>{q.questionNumber}</span>
+                                                <span style={{ flex: 1, color: '#1f2937', fontSize: '15px' }}>{q.questionText}</span>
+                                                <div style={{
+                                                    border: '1px solid #d1d5db', padding: '4px 8px', fontSize: '14px',
+                                                    background: q.correctAnswer ? '#ecfdf5' : 'white',
+                                                    color: q.correctAnswer ? '#059669' : '#9ca3af',
+                                                    fontWeight: 'bold', width: '70px', textAlign: 'center', borderRadius: '2px'
+                                                }}>
+                                                    {q.correctAnswer || '—'}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        // ── Fallback ──
+                        return (
+                            <div key={gIdx} style={{ marginBottom: '10px', color: '#6b7280', fontSize: '12px' }}>
+                                {grpBlocks.map(q => (
+                                    <div key={q.questionNumber} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                        <span style={{
+                                            border: '1px solid #374151', fontWeight: 'bold', fontSize: '11px',
+                                            padding: '0 5px', borderRadius: '2px'
+                                        }}>{q.questionNumber}</span>
+                                        <span>{q.questionText} (Unsupported type)</span>
+                                    </div>
+                                ))}
                             </div>
                         );
                     })}
                 </div>
             </div>
-        );
-    }
 
-    // ── Matching ──
-    if (isMatching) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                {NumberBox}
-                <span style={{ flex: 1, color: '#1f2937', fontSize: '14px' }}>{cleanText}</span>
-                <div style={{
-                    border: '1px solid #d1d5db', padding: '2px 10px', fontSize: '13px',
-                    background: '#ecfdf5', color: '#065f46', fontWeight: 'bold', borderRadius: '2px', width: '60px', textAlign: 'center'
-                }}>
-                    {block.correctAnswer || "?"}
-                </div>
-            </div>
-        );
-    }
-
-    // Fallback
-    return (
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', color: '#6b7280', fontSize: '12px' }}>
-            {NumberBox} <span>{cleanText} (Unsupported type in preview)</span>
-        </div>
-    );
-}
-
-export default function ListeningPreview({ sections, title, mainAudioUrl }) {
-    const [activePart, setActivePart] = useState(0);
-    const currentSection = sections[activePart] || {};
-    const blocks = currentSection.questions || [];
-
-    const questionBlocks = blocks.filter(b => b.blockType === "question");
-
-    return (
-        <div style={{ backgroundColor: '#fff', border: '1px solid #d1d5db', borderRadius: '8px', overflow: 'hidden', fontFamily: 'Arial, sans-serif' }}>
-            {/* ══ Header ══ */}
-            <div style={{ backgroundColor: '#1f2937', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <FaHeadphones size={14} />
-                    Live Preview — {title || "Untitled Listening Test"}
-                </h3>
-            </div>
-
-            {/* Part Tabs (Official Gray Banner Look) */}
-            <div style={{ backgroundColor: '#e5e7eb', borderBottom: '1px solid #d1d5db', padding: '5px 15px', display: 'flex', gap: '2px' }}>
-                {sections.map((_, idx) => (
-                    <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setActivePart(idx)}
-                        style={{
-                            padding: '4px 12px', fontSize: '12px', fontWeight: activePart === idx ? 'bold' : 'normal',
-                            background: activePart === idx ? '#fff' : 'transparent',
-                            color: activePart === idx ? '#1f2937' : '#4b5563',
-                            border: activePart === idx ? '1px solid #d1d5db' : '1px solid transparent',
-                            borderBottom: 'none', borderRadius: '3px 3px 0 0', cursor: 'pointer', marginBottom: '-6px'
-                        }}
-                    >
-                        Part {idx + 1}
-                    </button>
-                ))}
-            </div>
-
-            {/* ══ Scrollable Context Area ══ */}
-            <div style={{ overflowY: 'auto', maxHeight: '70vh', padding: '25px 40px' }}>
-
-                {/* Instruction Banner mirrors official Part Banner */}
-                <div style={{ marginBottom: '20px', borderBottom: '1px solid #f3f4f6', paddingBottom: '10px' }}>
-                    <p style={{ fontWeight: 'bold', fontSize: '13px', margin: '0 0 4px 0' }}>Part {activePart + 1}</p>
-                    <p style={{ fontSize: '12px', color: '#4b5563', margin: 0 }}>
-                        {currentSection.instructions || "Ready for listening section"}
-                    </p>
-                </div>
-
-                {/* Main Audio (if set) */}
-                {mainAudioUrl && (
-                    <div style={{ marginBottom: '15px', background: '#f9fafb', padding: '8px 12px', border: '1px dashed #d1d5db', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FaVolumeUp className="text-gray-400" size={12} />
-                        <span style={{ fontSize: '11px', color: '#6b7280', fontFamily: 'monospace' }}>{mainAudioUrl}</span>
-                    </div>
-                )}
-
-                {/* Render Content Blocks */}
-                <div style={{ textAlign: 'left' }}>
-                    {blocks.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af' }}>
-                            <FaHeadphones size={40} style={{ margin: '0 auto 10px opacity(0.2)' }} />
-                            <p style={{ fontStyle: 'italic', fontSize: '14px' }}>No questions in Part {activePart + 1}</p>
+            {/* ══ Bottom Navigator — same as exam page ══ */}
+            <div style={{
+                borderTop: '1px solid #d1d5db', backgroundColor: '#f9fafb',
+                padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+            }}>
+                <span style={{ fontSize: '11px', color: '#9ca3af' }}>Showing correct answers in GREEN</span>
+                <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap' }}>
+                    {questionBlocks.map(b => (
+                        <div key={b.questionNumber} style={{
+                            width: '22px', height: '22px', fontSize: '10px', fontWeight: 'bold',
+                            border: '1px solid #d1d5db', background: b.correctAnswer ? '#059669' : '#fff',
+                            color: b.correctAnswer ? '#fff' : '#9ca3af',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '2px'
+                        }}>
+                            {b.questionNumber}
                         </div>
-                    )}
-
-                    {blocks.map((block, bIdx) => {
-                        if (block.blockType === 'instruction') {
-                            return (
-                                <div key={bIdx} style={{ marginBottom: '15px', color: '#374151', fontSize: '14px', lineHeight: '1.6' }}
-                                    dangerouslySetInnerHTML={{ __html: block.content }} />
-                            );
-                        }
-                        if (block.blockType === 'question') {
-                            return <PreviewQuestion key={bIdx} block={block} />;
-                        }
-                        return null;
-                    })}
+                    ))}
                 </div>
             </div>
-
-            {/* Answer Summary Footer */}
-            {questionBlocks.length > 0 && (
-                <div style={{ padding: '10px 20px', backgroundColor: '#f9fafb', borderTop: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '11px', color: '#9ca3af' }}>Showing correct answers in GREEN</span>
-                    <div style={{ display: 'flex', gap: '2px' }}>
-                        {questionBlocks.map(b => (
-                            <div key={b.questionNumber} style={{
-                                width: '22px', height: '22px', fontSize: '10px', fontWeight: 'bold',
-                                border: '1px solid #d1d5db', background: b.correctAnswer ? '#1f2937' : '#fff',
-                                color: b.correctAnswer ? '#fff' : '#9ca3af',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>
-                                {b.questionNumber}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
-

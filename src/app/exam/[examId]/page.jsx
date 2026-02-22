@@ -8,14 +8,18 @@ import {
     FaPen,
     FaMicrophone,
     FaPlay,
+    FaStop,
+    FaVolumeUp,
     FaClock,
     FaQuestionCircle,
     FaArrowRight,
+    FaArrowLeft,
     FaLayerGroup,
     FaSpinner,
     FaUser,
     FaCheckCircle,
-    FaLock
+    FaLock,
+    FaTimes
 } from "react-icons/fa";
 import { studentsAPI } from "@/lib/api";
 import Logo from "@/components/Logo";
@@ -31,12 +35,18 @@ export default function ExamSelectionPage() {
     const [completedModules, setCompletedModules] = useState([]);
     const [moduleScores, setModuleScores] = useState(null);
 
-    // System Check States
-    const [systemChecked, setSystemChecked] = useState(false);
+    // System Check States — only shows once per exam session
+    const [systemChecked, setSystemChecked] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('systemCheckDone') === 'true';
+        }
+        return false;
+    });
     const [checkStep, setCheckStep] = useState(1);
     const [testAudioPlaying, setTestAudioPlaying] = useState(false);
     const [cameraStream, setCameraStream] = useState(null);
     const videoRef = React.useRef(null);
+    const testAudioRef = React.useRef(null);
 
     // Audio/Visual states
     const [audioDevices, setAudioDevices] = useState([]);
@@ -260,10 +270,19 @@ export default function ExamSelectionPage() {
                         <h2 className="text-white font-bold flex items-center gap-2">
                             <FaUser size={14} /> System Check
                         </h2>
-                        <div className="flex gap-2">
-                            {[1, 2].map(s => (
-                                <div key={s} className={`w-2 h-2 rounded-full ${checkStep === s ? 'bg-cyan-400' : 'bg-gray-600'}`}></div>
-                            ))}
+                        <div className="flex items-center gap-4">
+                            <div className="flex gap-2">
+                                {[1, 2].map(s => (
+                                    <div key={s} className={`w-2 h-2 rounded-full ${checkStep === s ? 'bg-cyan-400' : 'bg-gray-600'}`}></div>
+                                ))}
+                            </div>
+                            <button
+                                onClick={() => router.push('/')}
+                                className="text-gray-400 hover:text-white transition-colors p-1 rounded hover:bg-gray-700"
+                                title="Exit to Home"
+                            >
+                                <FaTimes size={14} />
+                            </button>
                         </div>
                     </div>
 
@@ -297,19 +316,51 @@ export default function ExamSelectionPage() {
 
                                 <button
                                     onClick={async () => {
-                                        const voiceAudio = new Audio("https://ielts-gateway.com/wp-content/uploads/2022/10/Listening-Introduction.mp3");
-                                        if (voiceAudio.setSinkId && selectedOutput) {
-                                            await voiceAudio.setSinkId(selectedOutput);
+                                        if (testAudioPlaying && testAudioRef.current) {
+                                            testAudioRef.current.close();
+                                            testAudioRef.current = null;
+                                            setTestAudioPlaying(false);
+                                            return;
                                         }
-                                        voiceAudio.play().catch(e => console.error("Audio play failed:", e));
+                                        // Generate a pleasant test tone using Web Audio API
+                                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                                        testAudioRef.current = ctx;
                                         setTestAudioPlaying(true);
-                                        voiceAudio.onended = () => setTestAudioPlaying(false);
-                                        setTimeout(() => setTestAudioPlaying(false), 5000);
+
+                                        const playTone = (freq, startTime, duration) => {
+                                            const osc = ctx.createOscillator();
+                                            const gain = ctx.createGain();
+                                            osc.type = 'sine';
+                                            osc.frequency.value = freq;
+                                            gain.gain.setValueAtTime(0, startTime);
+                                            gain.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
+                                            gain.gain.linearRampToValueAtTime(0, startTime + duration);
+                                            osc.connect(gain);
+                                            gain.connect(ctx.destination);
+                                            osc.start(startTime);
+                                            osc.stop(startTime + duration);
+                                        };
+
+                                        // Play a pleasant melody pattern (C-E-G-C chord progression)
+                                        const notes = [523, 659, 784, 1047, 784, 659, 523];
+                                        const now = ctx.currentTime;
+                                        notes.forEach((freq, i) => {
+                                            playTone(freq, now + i * 0.4, 0.35);
+                                        });
+
+                                        // Auto stop after melody finishes
+                                        setTimeout(() => {
+                                            setTestAudioPlaying(false);
+                                            if (testAudioRef.current) {
+                                                testAudioRef.current.close();
+                                                testAudioRef.current = null;
+                                            }
+                                        }, notes.length * 400 + 200);
                                     }}
-                                    className={`px-8 py-4 rounded-md font-bold text-sm transition-all border-2 flex items-center justify-center gap-3 mx-auto ${testAudioPlaying ? 'bg-cyan-50 border-cyan-500 text-cyan-600' : 'bg-gray-100 border-gray-200 text-gray-700 hover:border-cyan-400'}`}
+                                    className={`px-8 py-4 rounded-md font-bold text-sm transition-all border-2 flex items-center justify-center gap-3 mx-auto ${testAudioPlaying ? 'bg-cyan-50 border-cyan-500 text-cyan-600 animate-pulse' : 'bg-gray-100 border-gray-200 text-gray-700 hover:border-cyan-400'}`}
                                 >
-                                    <FaPlay size={14} />
-                                    {testAudioPlaying ? "Playing Demo Audio..." : "Play Test Voice Audio"}
+                                    {testAudioPlaying ? <FaVolumeUp size={14} className="animate-bounce" /> : <FaPlay size={14} />}
+                                    {testAudioPlaying ? "Playing... Click to Stop" : "🔊 Play Test Sound"}
                                 </button>
                                 <div className="pt-8">
                                     <button onClick={() => setCheckStep(2)} className="bg-black text-white px-8 py-3 rounded font-bold hover:bg-gray-900 w-full flex items-center justify-center gap-3">
@@ -321,7 +372,16 @@ export default function ExamSelectionPage() {
 
                         {checkStep === 2 && (
                             <div className="space-y-6">
-                                <h3 className="text-xl font-bold text-gray-800">Video & Microphone Check</h3>
+                                <div className="flex items-center justify-between">
+                                    <button
+                                        onClick={() => setCheckStep(1)}
+                                        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors font-medium"
+                                    >
+                                        <FaArrowLeft size={12} /> Back
+                                    </button>
+                                    <h3 className="text-xl font-bold text-gray-800">Video & Microphone Check</h3>
+                                    <div className="w-16"></div>
+                                </div>
                                 <div className="aspect-video bg-black rounded-lg overflow-hidden border-4 border-gray-800 shadow-inner relative">
                                     <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
                                     <div className="absolute bottom-4 left-4 flex gap-2">
@@ -396,6 +456,7 @@ export default function ExamSelectionPage() {
                                     <button
                                         onClick={() => {
                                             setSystemChecked(true);
+                                            localStorage.setItem('systemCheckDone', 'true');
                                             localStorage.setItem('examSettings', JSON.stringify(displaySettings));
                                         }}
                                         className="bg-[#1a56db] text-white px-8 py-4 rounded font-bold hover:bg-[#1e429f] w-full flex items-center justify-center gap-3 shadow-xl"
@@ -491,6 +552,7 @@ export default function ExamSelectionPage() {
                                 <button
                                     onClick={() => {
                                         localStorage.removeItem("examSession");
+                                        localStorage.removeItem("systemCheckDone");
                                         router.push("/");
                                     }}
                                     className="w-full sm:w-auto px-8 py-2.5 bg-gray-900 text-white rounded-md font-bold text-sm hover:bg-black transition-all flex items-center justify-center gap-2 group cursor-pointer"

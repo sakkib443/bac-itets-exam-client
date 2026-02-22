@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import {
     FaCheck,
@@ -16,6 +17,108 @@ import { listeningAPI, studentsAPI } from "@/lib/api";
 import ExamSecurity from "@/components/ExamSecurity";
 
 const QUESTIONS_PER_PAGE = 10;
+
+// ── Component: Renders Instruction with Embedded Question Inputs ──
+// This ensures table structures (<table>, <tr>, <td>) are preserved from the database
+// while allowing React to manage inputs inside them using Portals.
+const InstructionWithPortals = ({ content, answers, handleAnswer }) => {
+    const [targets, setTargets] = useState({});
+    const containerRef = useRef(null);
+
+    // CRITICAL: Memoize the processed HTML so it doesn't trigger 
+    // dangerouslySetInnerHTML to overwrite the DOM on every state change/re-render.
+    const processedHtml = React.useMemo(() => {
+        return (content || "").replace(
+            /(?:<strong>\s*)?\[(\d+)\](?:\s*<\/strong>)?/g,
+            (match, qNum) => {
+                return `<span id="portal-q-${qNum}" class="q-portal-target" style="display: inline-block; min-width: 140px; vertical-align: middle;"></span>`;
+            }
+        );
+    }, [content]);
+
+    useEffect(() => {
+        let attempts = 0;
+        const findTargets = () => {
+            if (containerRef.current) {
+                const found = {};
+                const markers = containerRef.current.querySelectorAll('.q-portal-target');
+                if (markers.length > 0) {
+                    markers.forEach(el => {
+                        const qNum = el.id.replace('portal-q-', '');
+                        found[qNum] = el;
+                    });
+                    setTargets(found);
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        // Poll for targets because dangerouslySetInnerHTML timing can be tricky with complex tables
+        const interval = setInterval(() => {
+            attempts++;
+            if (findTargets() || attempts > 50) {
+                clearInterval(interval);
+            }
+        }, 50);
+
+        return () => clearInterval(interval);
+    }, [processedHtml]); // Dependency on the memoized HTML
+
+    return (
+        <div style={{ marginBottom: '16px', lineHeight: '1.6', color: '#1f2937' }}>
+            <div
+                ref={containerRef}
+                className="instruction-html-container"
+                dangerouslySetInnerHTML={{ __html: processedHtml }}
+                style={{ overflowX: 'auto' }}
+            />
+
+            {Object.entries(targets).map(([qNum, element]) => (
+                createPortal(
+                    <span key={qNum} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', margin: '0 4px' }}>
+                        <span style={{
+                            border: '1px solid #374151', fontWeight: 'bold', fontSize: '11px',
+                            minWidth: '22px', height: '22px', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', color: '#111827', background: '#f3f4f6',
+                            lineHeight: '1', borderRadius: '2px', flexShrink: 0
+                        }}>{qNum}</span>
+                        <input
+                            type="text"
+                            value={answers[qNum] || ''}
+                            onChange={e => handleAnswer(qNum, e.target.value)}
+                            style={{
+                                border: '1px solid #d1d5db', borderBottom: '2px solid #6b7280',
+                                width: '100px', fontSize: '14px',
+                                outline: 'none', background: 'white', color: '#111827',
+                                padding: '3px 6px', borderRadius: '2px'
+                            }}
+                        />
+                    </span>,
+                    element
+                )
+            ))}
+            <style jsx global>{`
+                .instruction-html-container table {
+                    border-collapse: collapse;
+                    width: 100%;
+                    margin-bottom: 20px;
+                    border: 1px solid #d1d5db !important;
+                }
+                .instruction-html-container th, 
+                .instruction-html-container td {
+                    border: 1px solid #d1d5db !important;
+                    padding: 12px !important;
+                    text-align: left;
+                    vertical-align: middle;
+                }
+                .instruction-html-container th {
+                    background-color: #f9fafb;
+                }
+            `}</style>
+        </div>
+    );
+};
 
 export default function ListeningExamPage() {
     const params = useParams();
@@ -376,7 +479,7 @@ export default function ListeningExamPage() {
             const group = [b];
             let j = i + 1;
             // Group matching (they share options) or multi-select MC (they share question text)
-            if (qType === 'matching' || qType === 'multiple-choice-multi' || qType === 'matching-features' || qType === 'matching-headings') {
+            if (qType === 'matching' || qType === 'multiple-choice-multi' || qType === 'matching-features' || qType === 'matching-headings' || qType === 'map-labeling' || qType === 'diagram-labeling') {
                 while (j < blocks.length && !blocks[j]._isInstruction && blocks[j].questionType === qType) {
                     group.push(blocks[j]); j++;
                 }
@@ -389,6 +492,20 @@ export default function ListeningExamPage() {
     }
 
     const renderGroups = buildRenderGroups(pageBlocks);
+
+    // Pre-scan: find question numbers embedded as [N] placeholders in instruction blocks
+    const embeddedQNums = new Set();
+    renderGroups.forEach(grp => {
+        if (grp.type === 'instruction' && grp.block.content) {
+            const matches = grp.block.content.match(/\[(\d+)\]/g);
+            if (matches) {
+                matches.forEach(m => {
+                    const num = parseInt(m.replace(/[\[\]]/g, ''));
+                    if (num >= 1 && num <= 40) embeddedQNums.add(num);
+                });
+            }
+        }
+    });
 
     // Which part does this page belong to? (for part banner)
     // Determine which parts are covered by this page
@@ -465,16 +582,25 @@ export default function ListeningExamPage() {
                         // ── Instruction block ──
                         if (grp.type === 'instruction') {
                             return (
-                                <div key={gIdx} style={{ marginBottom: '12px', lineHeight: '1.6', color: '#1f2937' }}
-                                    dangerouslySetInnerHTML={{ __html: grp.block.content || '' }} />
+                                <InstructionWithPortals
+                                    key={gIdx}
+                                    content={grp.block.content}
+                                    answers={answers}
+                                    handleAnswer={handleAnswer}
+                                    qNumsSet={embeddedQNums}
+                                />
                             );
                         }
 
                         const blocks = grp.blocks;
                         const firstB = blocks[0];
 
-                        // ── Fill-in-blank / Note-completion ──
-                        if (grp.type === 'fill-in-blank' || grp.type === 'note-completion' || grp.type === 'sentence-completion') {
+                        // Skip question groups whose questions are already embedded as [N] inputs in instruction blocks
+                        if (grp.type !== 'instruction') {
+                            const allEmbedded = blocks.every(b => embeddedQNums.has(b.displayNumber));
+                            if (allEmbedded) return null;
+                        }
+                        if (grp.type === 'fill-in-blank' || grp.type === 'note-completion' || grp.type === 'sentence-completion' || grp.type === 'form-completion' || grp.type === 'flow-chart-completion' || grp.type === 'summary-completion' || grp.type === 'short-answer') {
                             const firstQNum = blocks[0].displayNumber;
                             const lastQNum = blocks[blocks.length - 1].displayNumber;
                             return (
@@ -514,6 +640,54 @@ export default function ListeningExamPage() {
                                 }
                             };
 
+                            // ── Multi-Select: ONE block with multiple number boxes ──
+                            if (isMultiSelect) {
+                                return (
+                                    <div key={gIdx} style={{ marginBottom: '24px' }} id={`q-${qNumbers[0]}`}>
+                                        {firstB.mainInstruction && <p style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '15px' }}>{firstB.mainInstruction}</p>}
+
+                                        {/* Number boxes [21] [22] + question text */}
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                            {qNumbers.map(n => (
+                                                <span key={n} style={{
+                                                    border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
+                                                    padding: '0 6px', color: '#111827', background: 'white',
+                                                    lineHeight: '1.8', flexShrink: 0, borderRadius: '2px', marginTop: '2px'
+                                                }}>{n}</span>
+                                            ))}
+                                            <span style={{ color: '#1f2937', fontSize: '15px', lineHeight: '1.5' }}>{firstB.questionText}</span>
+                                        </div>
+
+                                        {/* Shared options */}
+                                        <div style={{ marginLeft: '34px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {(firstB.options || []).map((opt, oIdx) => {
+                                                const letter = String.fromCharCode(65 + oIdx);
+                                                const text = (opt || '').replace(/^[A-Z]\.\s*/, '');
+                                                const isSel = qNumbers.some(n => answers[n] === letter);
+                                                return (
+                                                    <div key={oIdx} onClick={() => handleSel(qNumbers[0], letter)}
+                                                        style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+                                                        <span style={{ fontWeight: 'bold', width: '16px', flexShrink: 0, fontSize: '14px' }}>{letter}</span>
+                                                        <div style={{
+                                                            width: '18px', height: '18px', border: `1px solid ${isSel ? '#1f2937' : '#d1d5db'}`,
+                                                            background: isSel ? '#1f2937' : 'white', flexShrink: 0, marginTop: '1px',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            borderRadius: isMultiSelect ? '3px' : '50%'
+                                                        }}>
+                                                            {isSel && <div style={{ width: '10px', height: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" stroke="white" strokeWidth="2" fill="none" /></svg>
+                                                            </div>}
+                                                        </div>
+                                                        <span style={{ color: isSel ? '#111827' : '#374151', fontWeight: isSel ? '600' : '400', fontSize: '14px' }}>{text}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // ── Single-Select: each question separately ──
                             return (
                                 <div key={gIdx} style={{ marginBottom: '24px' }}>
                                     {firstB.mainInstruction && <p style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '15px' }}>{firstB.mainInstruction}</p>}
@@ -530,17 +704,11 @@ export default function ListeningExamPage() {
                                                 <span style={{ color: '#1f2937', fontSize: '15px', lineHeight: '1.5' }}>{q.questionText}</span>
                                             </div>
 
-                                            {isMultiSelect && qidx === 0 && (
-                                                <p style={{ marginBottom: '8px', color: '#4b5563', fontStyle: 'italic', fontSize: '13px', marginLeft: '34px' }}>
-                                                    Choose {qNumbers.length} letters, A–{String.fromCharCode(64 + (q.options || []).length)}.
-                                                </p>
-                                            )}
-
                                             <div style={{ marginLeft: '34px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                 {(q.options || []).map((opt, oIdx) => {
                                                     const letter = String.fromCharCode(65 + oIdx);
                                                     const text = (opt || '').replace(/^[A-Z]\.\s*/, '');
-                                                    const isSel = isMultiSelect ? qNumbers.some(n => answers[n] === letter) : answers[q.displayNumber] === letter;
+                                                    const isSel = answers[q.displayNumber] === letter;
                                                     return (
                                                         <div key={oIdx} onClick={() => handleSel(q.displayNumber, letter)}
                                                             style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
@@ -603,6 +771,46 @@ export default function ListeningExamPage() {
                                                     <option value=""></option>
                                                     {(firstB.options || []).map((_, oIdx) => (
                                                         <option key={oIdx} value={String.fromCharCode(65 + oIdx)}>{String.fromCharCode(65 + oIdx)}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        // ── Map / Diagram Labeling ──
+                        if (grp.type === 'map-labeling' || grp.type === 'diagram-labeling') {
+                            return (
+                                <div key={gIdx} style={{ marginBottom: '20px' }}>
+                                    {/* Section image for map/diagram */}
+                                    {firstB.imageUrl && (
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <img src={firstB.imageUrl} alt="Map/Diagram" style={{ maxWidth: '100%', maxHeight: '400px', border: '1px solid #d1d5db' }} />
+                                        </div>
+                                    )}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '500px' }}>
+                                        {blocks.map(q => (
+                                            <div key={q.displayNumber} id={`q-${q.displayNumber}`}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                {/* [N] box */}
+                                                <span style={{
+                                                    border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
+                                                    padding: '0 6px', color: '#111827', background: 'white',
+                                                    lineHeight: '1.8', flexShrink: 0, borderRadius: '2px'
+                                                }}>{q.displayNumber}</span>
+                                                <span style={{ flex: 1, color: '#1f2937', fontSize: '15px' }}>{q.questionText}</span>
+                                                <select value={answers[q.displayNumber] || ""}
+                                                    onChange={e => handleAnswer(q.displayNumber, e.target.value)}
+                                                    style={{
+                                                        border: '1px solid #d1d5db', padding: '4px 8px', fontSize: '14px',
+                                                        background: 'white', cursor: 'pointer', width: '80px',
+                                                        textAlign: 'center', borderRadius: '2px'
+                                                    }}>
+                                                    <option value=""></option>
+                                                    {(q.options || []).map((opt, oIdx) => (
+                                                        <option key={oIdx} value={opt}>{opt}</option>
                                                     ))}
                                                 </select>
                                             </div>

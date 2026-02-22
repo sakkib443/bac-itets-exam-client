@@ -50,11 +50,11 @@ const menuItems = [
         icon: FaPen,
         href: "/dashboard/admin/writing",
     },
-    {
-        title: "Speaking",
-        icon: FaMicrophone,
-        href: "/dashboard/admin/speaking",
-    },
+    // {
+    //     title: "Speaking",
+    //     icon: FaMicrophone,
+    //     href: "/dashboard/admin/speaking",
+    // },
     {
         title: "Exam Results",
         icon: FaChartBar,
