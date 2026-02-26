@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -568,7 +568,7 @@ export default function ReadingExamPage() {
                 <div style={{ fontWeight: 'bold', fontSize: `${15.5 * tScale}px`, color: cs.text, marginBottom: '2px' }}>
                     Passage {currentPassage + 1}
                 </div>
-                <div style={{ fontSize: `${14 * tScale}px`, color: cs.text }}>
+                <div style={{ fontSize: `${16 * tScale}px`, color: cs.text }}>
                     {currentPass.title}
                 </div>
             </div>
@@ -578,18 +578,18 @@ export default function ReadingExamPage() {
             â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden', paddingBottom: '50px' }}>
                 {/* LEFT: Passage Text */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 30px', borderRight: `1px solid ${contrastMode === 'black-on-white' ? '#d1d5db' : '#555'}`, backgroundColor: cs.bg, color: cs.text, fontSize: `${14 * tScale}px`, fontFamily: 'Arial, sans-serif' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 30px', borderRight: `1px solid ${contrastMode === 'black-on-white' ? '#d1d5db' : '#555'}`, backgroundColor: cs.bg, color: cs.text, fontSize: `${16 * tScale}px`, fontFamily: 'Arial, sans-serif' }}>
                     <h3 style={{ fontWeight: 'bold', fontSize: `${18 * tScale}px`, color: cs.text, marginBottom: '16px' }}>{currentPass.title}</h3>
                     {currentPass.source && <p style={{ fontSize: `${12 * tScale}px`, color: contrastMode === 'black-on-white' ? '#6b7280' : cs.text, marginBottom: '12px', fontStyle: 'italic' }}>{currentPass.source}</p>}
                     <TextHighlighter passageId={`reading_passage_${currentPassage}`}>
                         {currentPass.content.split('\n\n').map((para, index) => (
-                            <p key={index} style={{ color: cs.text, lineHeight: '1.8', marginBottom: '16px', fontSize: `${14 * tScale}px` }}>{para}</p>
+                            <p key={index} style={{ color: cs.text, lineHeight: '1.8', marginBottom: '16px', fontSize: `${16 * tScale}px` }}>{para}</p>
                         ))}
                     </TextHighlighter>
                 </div>
 
                 {/* RIGHT: Questions */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 30px', backgroundColor: cs.bg, color: cs.text, fontSize: `${14 * tScale}px`, fontFamily: 'Arial, sans-serif' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 30px', backgroundColor: cs.bg, color: cs.text, fontSize: `${16 * tScale}px`, fontFamily: 'Arial, sans-serif' }}>
                     <TextHighlighter passageId={`reading_questions_${currentPassage}`}>
                         {currentPass.questionGroups && currentPass.questionGroups.length > 0 ? (
                             currentPass.questionGroups.map((group, gIdx) => (
@@ -599,7 +599,7 @@ export default function ReadingExamPage() {
                                     {(group.questionType === "note-completion" || group.groupType === "note-completion") && (
                                         <div style={{ marginBottom: '20px' }}>
                                             <div style={{ marginBottom: '12px' }}>
-                                                <p style={{ color: cs.text, fontWeight: '500', marginBottom: '4px', fontSize: `${14 * tScale}px` }}>{group.instructions || group.mainInstruction}</p>
+                                                <p style={{ color: cs.text, fontWeight: '500', marginBottom: '4px', fontSize: `${16 * tScale}px` }}>{group.instructions || group.mainInstruction}</p>
                                                 <p style={{ color: cs.text, fontSize: `${13 * tScale}px`, fontStyle: 'italic' }}>
                                                     Choose <b>ONE WORD ONLY</b> from the passage for each answer.
                                                 </p>
@@ -1059,7 +1059,7 @@ export default function ReadingExamPage() {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
                                     <button onClick={() => setOptionsView('main')} style={{ background: 'none', border: 'none', fontSize: '15px', cursor: 'pointer', color: '#000' }}>Options</button>
                                     <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', margin: 0 }}>Contrast</h2>
-                                    <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#000', padding: '4px' }}>âœ•</button>
+                                    <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#000', padding: '4px' }}><FaTimes size={18} /></button>
                                 </div>
                                 <div style={{ margin: '8px 24px 24px', border: '1px solid #d1d5db', borderRadius: '6px' }}>
                                     {[{ key: 'black-on-white', label: 'Black on white' }, { key: 'white-on-black', label: 'White on black' }, { key: 'yellow-on-black', label: 'Yellow on black' }].map((opt, idx) => (
@@ -1077,7 +1077,7 @@ export default function ReadingExamPage() {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
                                     <button onClick={() => setOptionsView('main')} style={{ background: 'none', border: 'none', fontSize: '15px', cursor: 'pointer', color: '#000' }}>Options</button>
                                     <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', margin: 0 }}>Text size</h2>
-                                    <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#000', padding: '4px' }}>âœ•</button>
+                                    <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#000', padding: '4px' }}><FaTimes size={18} /></button>
                                 </div>
                                 <div style={{ margin: '8px 24px 24px', border: '1px solid #d1d5db', borderRadius: '6px' }}>
                                     {[{ key: 'regular', label: 'Regular' }, { key: 'large', label: 'Large' }, { key: 'extra-large', label: 'Extra large' }].map((opt, idx) => (
