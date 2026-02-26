@@ -10,6 +10,7 @@ import {
     FaTimes,
     FaSpinner,
     FaArrowRight,
+    FaArrowLeft,
     FaHeadphones
 } from "react-icons/fa";
 import { listeningAPI, studentsAPI } from "@/lib/api";
@@ -20,7 +21,7 @@ const QUESTIONS_PER_PAGE = 10;
 // ── Component: Renders Instruction with Embedded Question Inputs ──
 // Uses direct DOM manipulation. React.memo prevents re-renders from answer state changes
 // which would destroy the DOM inputs via dangerouslySetInnerHTML.
-const InstructionWithPortals = React.memo(function InstructionWithPortals({ content, answers, handleAnswer, imageUrl }) {
+const InstructionWithPortals = React.memo(function InstructionWithPortals({ content, answers, handleAnswer, imageUrl, textColor = '#000', bgColor = '#fff' }) {
     const containerRef = useRef(null);
     const handleAnswerRef = useRef(handleAnswer);
     handleAnswerRef.current = handleAnswer;
@@ -30,10 +31,10 @@ const InstructionWithPortals = React.memo(function InstructionWithPortals({ cont
         return (content || "").replace(
             /(?:<strong>\s*)?\[(\d+)\](?:\s*<\/strong>)?/g,
             (match, qNum) => {
-                return `<span class="embedded-q-wrapper" style="display: inline-flex; align-items: center; gap: 6px; margin: 0 4px; vertical-align: middle;">` +
-                    `<span style="border: 1px solid #374151; font-weight: bold; font-size: 11px; min-width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; color: #111827; background: #f3f4f6; line-height: 1; border-radius: 2px; flex-shrink: 0;">${qNum}</span>` +
+                return `<span class="embedded-q-wrapper" style="display: inline-flex; align-items: center; justify-content: center; margin: 0 6px; vertical-align: middle; position: relative; border: 1.5px solid currentColor; background: transparent; width: 190px; height: 32px;">` +
+                    `<span class="embedded-q-num" data-for="${qNum}" style="position: absolute; font-weight: bold; font-size: 15px; color: inherit; pointer-events: none; user-select: none;">${qNum}</span>` +
                     `<input type="text" data-qnum="${qNum}" class="embedded-q-input" ` +
-                    `style="border: 1px solid #d1d5db; border-bottom: 2px solid #6b7280; width: 120px; font-size: 14px; outline: none; background: white; color: #111827; padding: 3px 6px; border-radius: 2px;" />` +
+                    `style="border: none; width: 100%; height: 100%; font-size: 15px; outline: none; background: transparent; color: inherit; padding: 0 8px; text-align: center; font-family: Arial, sans-serif;" />` +
                     `</span>`;
             }
         );
@@ -54,8 +55,13 @@ const InstructionWithPortals = React.memo(function InstructionWithPortals({ cont
             if (initialValue) input.value = initialValue;
 
             // Attach input event listener
+            // Hide the number label when user types
+            const numLabel = containerRef.current.querySelector(`.embedded-q-num[data-for="${qNum}"]`);
+            if (initialValue && numLabel) numLabel.style.display = 'none';
+
             const handler = (e) => {
                 handleAnswerRef.current(parseInt(qNum), e.target.value);
+                if (numLabel) numLabel.style.display = e.target.value ? 'none' : '';
             };
             input.addEventListener('input', handler);
             handlers.push({ input, handler });
@@ -78,7 +84,7 @@ const InstructionWithPortals = React.memo(function InstructionWithPortals({ cont
     const bottomMargin = isMainHeading ? '5px' : isSubHeading ? '4px' : isPureList ? '2px' : '4px';
 
     return (
-        <div style={{ marginTop: topMargin, marginBottom: bottomMargin, lineHeight: '1.6', color: '#1f2937' }}>
+        <div style={{ marginTop: topMargin, marginBottom: bottomMargin, lineHeight: '1.6', color: textColor }}>
             <div
                 ref={containerRef}
                 className="instruction-html-container"
@@ -97,17 +103,18 @@ const InstructionWithPortals = React.memo(function InstructionWithPortals({ cont
                     border-collapse: collapse;
                     width: 100%;
                     margin-bottom: 20px;
-                    border: 1px solid #d1d5db !important;
+                    border: 1px solid currentColor !important;
                 }
                 .instruction-html-container th, 
                 .instruction-html-container td {
-                    border: 1px solid #d1d5db !important;
+                    border: 1px solid currentColor !important;
                     padding: 12px !important;
                     text-align: left;
                     vertical-align: middle;
+                    color: inherit !important;
                 }
                 .instruction-html-container th {
-                    background-color: #f9fafb;
+                    background-color: transparent;
                 }
                 .instruction-html-container ul {
                     list-style: disc;
@@ -118,15 +125,26 @@ const InstructionWithPortals = React.memo(function InstructionWithPortals({ cont
                     margin-bottom: 5px;
                     font-size: 14px;
                     line-height: 1.8;
-                    color: #111827;
+                    color: inherit !important;
+                }
+                .instruction-html-container p,
+                .instruction-html-container span,
+                .instruction-html-container strong,
+                .instruction-html-container b,
+                .instruction-html-container em,
+                .instruction-html-container h1,
+                .instruction-html-container h2,
+                .instruction-html-container h3,
+                .instruction-html-container h4 {
+                    color: inherit !important;
                 }
             `}</style>
         </div>
     );
 }, (prevProps, nextProps) => {
-    // Only re-render when content or imageUrl changes — NOT when answers/handleAnswer change.
+    // Re-render when content, imageUrl, or contrast colors change — NOT when answers/handleAnswer change.
     // This prevents dangerouslySetInnerHTML from destroying DOM inputs on every keystroke.
-    return prevProps.content === nextProps.content && prevProps.imageUrl === nextProps.imageUrl;
+    return prevProps.content === nextProps.content && prevProps.imageUrl === nextProps.imageUrl && prevProps.textColor === nextProps.textColor && prevProps.bgColor === nextProps.bgColor;
 });
 
 export default function ListeningExamPage() {
@@ -137,8 +155,27 @@ export default function ListeningExamPage() {
     const [timeLeft, setTimeLeft] = useState(40 * 60);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [showInstructions, setShowInstructions] = useState(true);
+    const [showSoundTest, setShowSoundTest] = useState(true);        // Step 1: Audio Test (first thing)
+    const [showPlayOverlay, setShowPlayOverlay] = useState(false);   // Step 2: Overlay on exam page
+    const [soundTestPlaying, setSoundTestPlaying] = useState(false);
+    const [soundTestResult, setSoundTestResult] = useState(null);    // null | 'ask' | 'yes' | 'no'
     const [currentPage, setCurrentPage] = useState(0); // page index (10 qs/page)
+
+    // Options menu states
+    const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+    const [optionsView, setOptionsView] = useState('main'); // 'main' | 'contrast' | 'textsize'
+    const [contrastMode, setContrastMode] = useState('black-on-white'); // 'black-on-white' | 'white-on-black' | 'yellow-on-black'
+    const [textSizeMode, setTextSizeMode] = useState('regular'); // 'regular' | 'large' | 'extra-large'
+
+    // Contrast & text size derived styles
+    const contrastStyles = {
+        'black-on-white': { bg: '#fff', text: '#000', partBg: '#f0ece4', partBorder: '#d6d0c4' },
+        'white-on-black': { bg: '#000', text: '#fff', partBg: '#000', partBorder: '#555' },
+        'yellow-on-black': { bg: '#000', text: '#ffff00', partBg: '#000', partBorder: '#555' }
+    };
+    const textSizeScale = { 'regular': 1, 'large': 1.2, 'extra-large': 1.45 };
+    const cs = contrastStyles[contrastMode];
+    const tScale = textSizeScale[textSizeMode];
 
     // Data states
     const [isLoading, setIsLoading] = useState(true);
@@ -149,6 +186,7 @@ export default function ListeningExamPage() {
     const [isPlaying, setIsPlaying] = useState(false);
     const [volume, setVolume] = useState(1);
     const audioRef = useRef(null);
+    const soundTestAudioRef = useRef(null);
     const hasStarted = useRef(false);
 
     // ── Load exam data ───────────────────────────────────────────────────
@@ -276,7 +314,7 @@ export default function ListeningExamPage() {
     };
 
     useEffect(() => {
-        if (showInstructions || isLoading) return;
+        if (showSoundTest || showPlayOverlay || isLoading) return;
         const t = setInterval(() => {
             setTimeLeft(prev => {
                 if (prev <= 1) { clearInterval(t); handleSubmit(); return 0; }
@@ -284,7 +322,7 @@ export default function ListeningExamPage() {
             });
         }, 1000);
         return () => clearInterval(t);
-    }, [showInstructions, isLoading]);
+    }, [showSoundTest, showPlayOverlay, isLoading]);
 
     // ── Audio ─────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -296,14 +334,14 @@ export default function ListeningExamPage() {
     }, []);
 
     useEffect(() => {
-        if (audioRef.current && !showInstructions && audioUrl && !hasStarted.current) {
+        if (audioRef.current && !showSoundTest && !showPlayOverlay && audioUrl && !hasStarted.current) {
             audioRef.current.src = audioUrl;
             audioRef.current.load();
             audioRef.current.play().catch(err => console.log("Auto-play blocked:", err));
             setIsPlaying(true);
             hasStarted.current = true;
         }
-    }, [showInstructions, audioUrl]);
+    }, [showSoundTest, showPlayOverlay, audioUrl]);
 
     const togglePlay = () => {
         if (!audioRef.current) return;
@@ -415,61 +453,253 @@ export default function ListeningExamPage() {
         </div>
     );
 
+    // ── Sound Test: play a beep tone using Web Audio API ──
+    const playSoundTest = () => {
+        try {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            const audioCtx = new AudioContextClass();
+
+            // Create a pleasant test tone sequence (3 beeps)
+            const playBeep = (startTime, frequency, duration) => {
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(frequency, startTime);
+                gainNode.gain.setValueAtTime(volume * 0.3, startTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+                oscillator.start(startTime);
+                oscillator.stop(startTime + duration);
+            };
+
+            const now = audioCtx.currentTime;
+            playBeep(now, 523.25, 0.4);        // C5
+            playBeep(now + 0.5, 659.25, 0.4);   // E5
+            playBeep(now + 1.0, 783.99, 0.6);   // G5
+
+            setSoundTestPlaying(true);
+            setSoundTestResult(null);
+            setTimeout(() => {
+                setSoundTestPlaying(false);
+                setSoundTestResult('ask'); // show Yes/No buttons after sound finishes
+            }, 2000);
+        } catch (e) {
+            console.error('Audio test failed:', e);
+        }
+    };
+
+
     // ─────────────────────────────────────────────────────────────────────
-    // RENDER: Instructions
+    // RENDER: Step 2 — Audio / Sound Test
     // ─────────────────────────────────────────────────────────────────────
-    if (showInstructions) return (
+    if (showSoundTest) return (
         <div className="min-h-screen" style={{ backgroundColor: '#4b4b4b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Arial, sans-serif' }}>
-            <div style={{ textAlign: 'center', maxWidth: '800px', padding: '0 20px', color: 'white' }}>
-                {/* Headphones Icon */}
-                <div style={{ marginBottom: '40px', display: 'flex', justifyContent: 'center' }}>
-                    <FaHeadphones size={100} style={{ color: 'white', opacity: 0.9 }} />
-                </div>
-
-                {/* Warning Text */}
-                <p style={{ fontSize: '15px', lineHeight: '1.6', marginBottom: '25px', fontWeight: '400' }}>
-                    You will be listening to an audio clip during this test. You will not be permitted to pause or rewind the audio while answering the questions.
-                </p>
-
-                <p style={{ fontSize: '15px', marginBottom: '30px', fontWeight: '400' }}>
-                    To continue, click Play.
-                </p>
-
-                {/* Play Button */}
-                <button
-                    onClick={() => setShowInstructions(false)}
-                    style={{
-                        backgroundColor: 'black',
-                        color: 'white',
-                        border: 'none',
-                        padding: '10px 25px',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        cursor: 'pointer',
-                        borderRadius: '4px',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
-                    }}
-                >
+            <div style={{ textAlign: 'center', maxWidth: '520px', padding: '0 20px', color: 'white' }}>
+                {/* Sound Icon */}
+                <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'center' }}>
                     <div style={{
-                        backgroundColor: 'white',
+                        width: '100px',
+                        height: '100px',
                         borderRadius: '50%',
-                        width: '24px',
-                        height: '24px',
+                        background: soundTestPlaying ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.1)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        paddingLeft: '2px'
+                        transition: 'all 0.3s'
                     }}>
-                        <FaPlay size={10} style={{ color: 'black' }} />
+                        <FaVolumeUp size={50} style={{ color: soundTestPlaying ? '#4ade80' : 'white', transition: 'color 0.3s' }} />
                     </div>
-                    Play
+                </div>
+
+                <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '12px' }}>
+                    Sound Check
+                </h2>
+
+                <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '28px', color: '#d1d5db' }}>
+                    Put on your headphones and click the button below to play a test sound.
+                </p>
+
+                {/* Play Test Sound Button */}
+                <button
+                    onClick={playSoundTest}
+                    disabled={soundTestPlaying}
+                    style={{
+                        backgroundColor: soundTestPlaying ? '#16a34a' : '#2563eb',
+                        color: 'white',
+                        border: 'none',
+                        padding: '12px 30px',
+                        fontSize: '15px',
+                        fontWeight: '600',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        cursor: soundTestPlaying ? 'default' : 'pointer',
+                        borderRadius: '8px',
+                        transition: 'all 0.2s',
+                        marginBottom: '24px'
+                    }}
+                >
+                    {soundTestPlaying ? (
+                        <>
+                            <FaVolumeUp size={16} />
+                            Playing...
+                        </>
+                    ) : (
+                        <>
+                            <FaPlay size={12} />
+                            Play Test Sound
+                        </>
+                    )}
                 </button>
+
+                {/* Volume Slider */}
+                <div style={{ marginBottom: '28px' }}>
+                    <label style={{ fontSize: '13px', color: '#9ca3af', display: 'block', marginBottom: '10px' }}>
+                        Volume: {Math.round(volume * 100)}%
+                    </label>
+                    <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={volume}
+                        onChange={(e) => setVolume(parseFloat(e.target.value))}
+                        style={{
+                            width: '250px',
+                            height: '6px',
+                            appearance: 'auto',
+                            cursor: 'pointer',
+                            accentColor: '#3b82f6'
+                        }}
+                    />
+                </div>
+
+                {/* ── After sound plays: Ask "Can you hear?" ── */}
+                {soundTestResult === 'ask' && (
+                    <div style={{ marginBottom: '20px' }}>
+                        <p style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: '#fbbf24' }}>
+                            Can you hear the sound?
+                        </p>
+                        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+                            {/* YES Button */}
+                            <button
+                                onClick={() => {
+                                    setSoundTestResult('yes');
+                                    setShowSoundTest(false);
+                                    setShowInstructions(true);
+                                }}
+                                style={{
+                                    backgroundColor: '#16a34a',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '12px 35px',
+                                    fontSize: '15px',
+                                    fontWeight: 'bold',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    cursor: 'pointer',
+                                    borderRadius: '8px',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <FaCheck size={14} />
+                                Yes
+                            </button>
+                            {/* NO Button */}
+                            <button
+                                onClick={() => setSoundTestResult('no')}
+                                style={{
+                                    backgroundColor: '#dc2626',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '12px 35px',
+                                    fontSize: '15px',
+                                    fontWeight: 'bold',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    cursor: 'pointer',
+                                    borderRadius: '8px',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <FaTimes size={14} />
+                                No
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── If NO: Show troubleshooting options ── */}
+                {soundTestResult === 'no' && (
+                    <div style={{
+                        marginTop: '10px',
+                        padding: '20px',
+                        backgroundColor: 'rgba(239,68,68,0.1)',
+                        borderRadius: '10px',
+                        border: '1px solid rgba(239,68,68,0.3)'
+                    }}>
+                        <p style={{ fontSize: '14px', color: '#fca5a5', marginBottom: '16px', lineHeight: '1.6' }}>
+                            Please check your headphones/speakers and make sure they are connected properly. Then try again.
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <button
+                                onClick={() => {
+                                    setSoundTestResult(null);
+                                    playSoundTest();
+                                }}
+                                style={{
+                                    backgroundColor: '#2563eb',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '10px 25px',
+                                    fontSize: '14px',
+                                    fontWeight: '600',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    cursor: 'pointer',
+                                    borderRadius: '6px'
+                                }}
+                            >
+                                <FaPlay size={10} />
+                                Try Again
+                            </button>
+                            <button
+                                onClick={() => router.push(`/exam/${params.examId}`)}
+                                style={{
+                                    backgroundColor: 'transparent',
+                                    color: '#f87171',
+                                    border: '1px solid #f87171',
+                                    padding: '10px 25px',
+                                    fontSize: '14px',
+                                    fontWeight: '600',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    cursor: 'pointer',
+                                    borderRadius: '6px'
+                                }}
+                            >
+                                <FaTimes size={12} />
+                                Exit Test
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Default hint when no result yet */}
+                {!soundTestResult && !soundTestPlaying && (
+                    <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
+                        Click "Play Test Sound" to check your audio.
+                    </p>
+                )}
             </div>
         </div>
     );
+
 
     // ─────────────────────────────────────────────────────────────────────
     // RENDER: Main Exam — Official IELTS Interface
@@ -527,47 +757,126 @@ export default function ListeningExamPage() {
             <audio ref={audioRef} preload="auto" />
 
             {/* ══════════════════════════════════════
-                TOP HEADER — Official IELTS style
+                PLAY OVERLAY — shown after sound test passes
             ══════════════════════════════════════ */}
-            <header style={{ backgroundColor: '#fff', borderBottom: '1px solid #ccc', height: '44px', flexShrink: 0 }}>
+            {showPlayOverlay && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(75, 75, 75, 0.92)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: 'Arial, sans-serif'
+                }}>
+                    <div style={{ textAlign: 'center', maxWidth: '800px', padding: '0 20px', color: 'white' }}>
+                        {/* Headphones Icon */}
+                        <div style={{ marginBottom: '40px', display: 'flex', justifyContent: 'center' }}>
+                            <FaHeadphones size={100} style={{ color: 'white', opacity: 0.9 }} />
+                        </div>
+
+                        <p style={{ fontSize: '15px', lineHeight: '1.6', marginBottom: '25px', fontWeight: '400' }}>
+                            You will be listening to an audio clip during this test. You will not be permitted to pause or rewind the audio while answering the questions.
+                        </p>
+
+                        <p style={{ fontSize: '15px', marginBottom: '30px', fontWeight: '400' }}>
+                            To continue, click Play.
+                        </p>
+
+                        {/* Play Button */}
+                        <button
+                            onClick={() => setShowPlayOverlay(false)}
+                            style={{
+                                backgroundColor: 'black',
+                                color: 'white',
+                                border: 'none',
+                                padding: '10px 25px',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                cursor: 'pointer',
+                                borderRadius: '4px',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                            }}
+                        >
+                            <div style={{
+                                backgroundColor: 'white',
+                                borderRadius: '50%',
+                                width: '24px',
+                                height: '24px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                paddingLeft: '2px'
+                            }}>
+                                <FaPlay size={10} style={{ color: 'black' }} />
+                            </div>
+                            Play
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════
+                TOP HEADER — Inspera IELTS Clone
+            ══════════════════════════════════════ */}
+            <header style={{ backgroundColor: cs.bg, borderBottom: `1px solid ${contrastMode === 'black-on-white' ? '#ccc' : '#555'}`, height: '44px', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%', padding: '0 16px' }}>
-                    {/* Left: IELTS logo + audio status */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <span style={{ fontWeight: 'bold', color: '#d40000', fontSize: '20px', fontStyle: 'italic', letterSpacing: '-0.5px' }}>IELTS</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: isPlaying ? '#1a56db' : '#6b7280' }}>
-                            <FaVolumeUp size={11} />
-                            <span>{isPlaying ? 'Audio is playing' : 'Audio paused'}</span>
+                    {/* Left: IELTS logo + Test taker ID + audio status */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <span style={{ fontWeight: '900', color: '#cc0000', fontSize: '22px', fontStyle: 'italic', letterSpacing: '-0.5px', fontFamily: 'Arial, sans-serif' }}>IELTS</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
+                            <span style={{ fontSize: '13px', fontWeight: '600', color: cs.text }}>Test taker ID</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: contrastMode === 'black-on-white' ? '#6b7280' : cs.text }}>
+                                <FaVolumeUp size={10} style={{ color: isPlaying ? '#111' : '#9ca3af' }} />
+                                <span>{isPlaying ? 'Audio is playing' : 'Audio paused'}</span>
+                            </div>
                         </div>
                     </div>
-                    {/* Right: timer + controls */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ fontWeight: 'bold', fontSize: '14px', color: timeLeft < 300 ? '#dc2626' : '#374151', fontVariantNumeric: 'tabular-nums' }}>
+                    {/* Right: WiFi + Bell + Menu icons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+                        {/* Timer (small, subtle) */}
+                        <span style={{ fontSize: '12px', fontWeight: '600', color: timeLeft < 300 ? '#dc2626' : (contrastMode === 'black-on-white' ? '#6b7280' : cs.text), fontVariantNumeric: 'tabular-nums' }}>
                             {formatTime(timeLeft)}
                         </span>
-
-                        <button onClick={() => setShowSubmitModal(true)} style={{ fontSize: '12px', color: '#4b5563', border: '1px solid #d1d5db', padding: '2px 10px', cursor: 'pointer', background: 'white' }}>
-                            Submit
-                        </button>
+                        {/* WiFi icon */}
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={contrastMode === 'black-on-white' ? '#374151' : cs.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+                            <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                            <line x1="12" y1="20" x2="12.01" y2="20" />
+                        </svg>
+                        {/* Bell icon */}
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={contrastMode === 'black-on-white' ? '#374151' : cs.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                        </svg>
+                        {/* Hamburger menu — opens Options panel */}
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={contrastMode === 'black-on-white' ? '#374151' : cs.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: 'pointer' }} onClick={() => { setShowOptionsMenu(true); setOptionsView('main'); }}>
+                            <line x1="3" y1="6" x2="21" y2="6" />
+                            <line x1="3" y1="12" x2="21" y2="12" />
+                            <line x1="3" y1="18" x2="21" y2="18" />
+                        </svg>
                     </div>
                 </div>
             </header>
 
             {/* ══════════════════════════════════════
-                PART BANNER — gray bar
+                PART BANNER — Inspera Style
             ══════════════════════════════════════ */}
-            <div style={{ backgroundColor: '#e5e7eb', borderBottom: '1px solid #d1d5db', padding: '5px 16px', flexShrink: 0 }}>
-                <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#1f2937' }}>
-                    {partCovered.size === 1
-                        ? `Part ${currentSectionIndex + 1}`
-                        : `Parts ${Math.min(...partCovered) + 1}–${Math.max(...partCovered) + 1}`
-                    }
+            <div style={{ backgroundColor: cs.partBg, borderBottom: `1px solid ${cs.partBorder}`, padding: '12px 40px', flexShrink: 0, fontFamily: 'Arial, sans-serif' }}>
+                <div style={{ fontWeight: 'bold', fontSize: `${15.5 * tScale}px`, color: cs.text, marginBottom: '2px' }}>
+                    Part {currentSectionIndex + 1}
                 </div>
-                <div style={{ fontSize: '12px', color: '#4b5563' }}>
+                <div style={{ fontSize: `${14 * tScale}px`, color: cs.text }}>
                     {(() => {
                         const partQs = pageBlocks.filter(b => !b._isInstruction);
                         const first = partQs[0]?.displayNumber;
                         const last = partQs[partQs.length - 1]?.displayNumber;
-                        return currentSec.instructions || (first && last ? `Listen and answer questions ${first}–${last}` : '');
+                        return (first && last ? `Listen and answer questions ${first}–${last}.` : '');
                     })()}
                 </div>
             </div>
@@ -575,446 +884,654 @@ export default function ListeningExamPage() {
             {/* ══════════════════════════════════════
                 SCROLLABLE CONTENT
             ══════════════════════════════════════ */}
-            <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '56px' }}>
-                <div style={{ maxWidth: '1000px', padding: '30px 60px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '70px', fontFamily: 'Arial, sans-serif', backgroundColor: cs.bg, color: cs.text, fontSize: `${14 * tScale}px` }}>
+                <div style={{ maxWidth: '1000px', padding: '20px 40px' }}>
 
                     {/* Section image if any */}
                     {currentSec.imageUrl && (
-                        <div style={{ marginBottom: '16px' }}>
-                            <img src={currentSec.imageUrl} alt="Section diagram" style={{ maxWidth: '100%', maxHeight: '400px' }} />
+                        <div style={{ marginBottom: '25px' }}>
+                            <img src={currentSec.imageUrl} alt="Section diagram" style={{ maxWidth: '100%', maxHeight: '420px' }} />
                         </div>
                     )}
 
                     {/* ── Render groups ── */}
-                    {renderGroups.map((grp, gIdx) => {
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {renderGroups.map((grp, gIdx) => {
 
-                        // ── Instruction block ──
-                        if (grp.type === 'instruction') {
-                            return (
-                                <InstructionWithPortals
-                                    key={gIdx}
-                                    content={grp.block.content}
-                                    imageUrl={grp.block.imageUrl}
-                                    answers={answers}
-                                    handleAnswer={handleAnswer}
-                                    qNumsSet={embeddedQNums}
-                                />
-                            );
-                        }
-
-                        const blocks = grp.blocks;
-                        const firstB = blocks[0];
-
-                        // Skip question groups whose questions are already embedded as [N] inputs in instruction blocks
-                        if (grp.type !== 'instruction') {
-                            const allEmbedded = blocks.every(b => embeddedQNums.has(b.displayNumber));
-                            if (allEmbedded) return null;
-                        }
-                        if (grp.type === 'fill-in-blank' || grp.type === 'note-completion' || grp.type === 'sentence-completion' || grp.type === 'form-completion' || grp.type === 'flow-chart-completion' || grp.type === 'summary-completion' || grp.type === 'short-answer' || grp.type === 'table-completion') {
-                            const firstQNum = blocks[0].displayNumber;
-                            const lastQNum = blocks[blocks.length - 1].displayNumber;
-                            return (
-                                <div key={gIdx} style={{ marginBottom: '4px' }}>
-                                    {/* Instruction from block */}
-                                    {firstB.instruction && (
-                                        <p style={{ marginBottom: '4px', color: '#1f2937', fontSize: '14px', fontWeight: 'bold' }}>{firstB.instruction}</p>
-                                    )}
-                                    {/* Question rows — IELTS-style bullet list with inline inputs */}
-                                    <ul style={{ listStyle: 'disc', paddingLeft: '22px', margin: '0' }}>
-                                        {blocks.map(q => (
-                                            <NoteCompletionRow key={q.displayNumber} q={q} answers={answers} handleAnswer={handleAnswer} />
-                                        ))}
-                                    </ul>
-                                </div>
-                            );
-                        }
-
-                        // ── Multiple Choice ──
-                        if (grp.type === 'multiple-choice' || grp.type === 'multiple-choice-multi') {
-                            const isMultiSelect = grp.type === 'multiple-choice-multi';
-                            const firstB = blocks[0];
-                            const qNumbers = blocks.map(b => b.displayNumber);
-
-                            const handleSel = (qNum, label) => {
-                                if (isMultiSelect) {
-                                    const cur = qNumbers.map(n => answers[n]).filter(Boolean);
-                                    if (cur.includes(label)) {
-                                        const toClear = qNumbers.find(n => answers[n] === label);
-                                        if (toClear) handleAnswer(toClear, '');
-                                    } else if (cur.length < qNumbers.length) {
-                                        const emp = qNumbers.find(n => !answers[n]);
-                                        if (emp) handleAnswer(emp, label);
-                                    }
-                                } else {
-                                    handleAnswer(qNum, label);
-                                }
-                            };
-
-                            // ── Multi-Select: ONE block with multiple number boxes ──
-                            if (isMultiSelect) {
+                            // ── Instruction block ──
+                            if (grp.type === 'instruction') {
                                 return (
-                                    <div key={gIdx} style={{ marginBottom: '24px' }} id={`q-${qNumbers[0]}`}>
-                                        {firstB.mainInstruction && <p style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '15px' }}>{firstB.mainInstruction}</p>}
+                                    <div key={gIdx}>
+                                        <InstructionWithPortals
+                                            content={grp.block.content}
+                                            imageUrl={grp.block.imageUrl}
+                                            answers={answers}
+                                            handleAnswer={handleAnswer}
+                                            qNumsSet={embeddedQNums}
+                                            textColor={cs.text}
+                                            bgColor={cs.bg}
+                                        />
+                                    </div>
+                                );
+                            }
 
-                                        {/* Number boxes [21] [22] + question text */}
-                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                                            {qNumbers.map(n => (
-                                                <span key={n} style={{
-                                                    border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
-                                                    padding: '0 6px', color: '#111827', background: 'white',
-                                                    lineHeight: '1.8', flexShrink: 0, borderRadius: '2px', marginTop: '2px'
-                                                }}>{n}</span>
+                            const blocks = grp.blocks;
+                            const firstB = blocks[0];
+
+                            // Skip question groups whose questions are already embedded as [N] inputs in instruction blocks
+                            if (grp.type !== 'instruction') {
+                                const allEmbedded = blocks.every(b => embeddedQNums.has(b.displayNumber));
+                                if (allEmbedded) return null;
+                            }
+
+                            if (grp.type === 'fill-in-blank' || grp.type === 'note-completion' || grp.type === 'sentence-completion' || grp.type === 'form-completion' || grp.type === 'flow-chart-completion' || grp.type === 'summary-completion' || grp.type === 'short-answer' || grp.type === 'table-completion') {
+                                const firstQNum = blocks[0].displayNumber;
+                                const lastQNum = blocks[blocks.length - 1].displayNumber;
+                                return (
+                                    <div key={gIdx}>
+                                        {/* Instruction: support bold text markers like **ONE WORD** */}
+                                        {firstB.instruction && (
+                                            <p style={{
+                                                marginBottom: '20px',
+                                                color: cs.text,
+                                                fontSize: '15.5px',
+                                                lineHeight: '1.4',
+                                                fontFamily: 'Arial, sans-serif'
+                                            }} dangerouslySetInnerHTML={{
+                                                __html: firstB.instruction.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+                                            }} />
+                                        )}
+
+                                        {/* Question rows */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                            {blocks.map(q => (
+                                                <NoteCompletionRow key={q.displayNumber} q={q} answers={answers} handleAnswer={handleAnswer} textColor={cs.text} />
                                             ))}
-                                            <span style={{ color: '#1f2937', fontSize: '15px', lineHeight: '1.5' }}>{firstB.questionText}</span>
-                                        </div>
-
-                                        {/* Shared options */}
-                                        <div style={{ marginLeft: '34px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            {(firstB.options || []).map((opt, oIdx) => {
-                                                const letter = String.fromCharCode(65 + oIdx);
-                                                const text = (opt || '').replace(/^[A-Z]\.\s*/, '');
-                                                const isSel = qNumbers.some(n => answers[n] === letter);
-                                                return (
-                                                    <div key={oIdx} onClick={() => handleSel(qNumbers[0], letter)}
-                                                        style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
-                                                        <span style={{ fontWeight: 'bold', width: '16px', flexShrink: 0, fontSize: '14px' }}>{letter}</span>
-                                                        <div style={{
-                                                            width: '18px', height: '18px', border: `1px solid ${isSel ? '#1f2937' : '#d1d5db'}`,
-                                                            background: isSel ? '#1f2937' : 'white', flexShrink: 0, marginTop: '1px',
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            borderRadius: isMultiSelect ? '3px' : '50%'
-                                                        }}>
-                                                            {isSel && <div style={{ width: '10px', height: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                <svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" stroke="white" strokeWidth="2" fill="none" /></svg>
-                                                            </div>}
-                                                        </div>
-                                                        <span style={{ color: isSel ? '#111827' : '#374151', fontWeight: isSel ? '600' : '400', fontSize: '14px' }}>{text}</span>
-                                                    </div>
-                                                );
-                                            })}
                                         </div>
                                     </div>
                                 );
                             }
 
-                            // ── Single-Select: each question separately ──
-                            return (
-                                <div key={gIdx} style={{ marginBottom: '24px' }}>
-                                    {firstB.mainInstruction && <p style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '15px' }}>{firstB.mainInstruction}</p>}
+                            // ── Multiple Choice ──
+                            if (grp.type === 'multiple-choice' || grp.type === 'multiple-choice-multi') {
+                                const isMultiSelect = grp.type === 'multiple-choice-multi';
+                                const firstB = blocks[0];
+                                const qNumbers = blocks.map(b => b.displayNumber);
 
-                                    {blocks.map((q, qidx) => (
-                                        <div key={qidx} style={{ marginBottom: '20px' }} id={`q-${q.displayNumber}`}>
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
-                                                {/* [N] box */}
-                                                <span style={{
-                                                    border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
-                                                    padding: '0 6px', color: '#111827', background: 'white',
-                                                    lineHeight: '1.8', flexShrink: 0, borderRadius: '2px', marginTop: '2px'
-                                                }}>{q.displayNumber}</span>
-                                                <span style={{ color: '#1f2937', fontSize: '15px', lineHeight: '1.5' }}>{q.questionText}</span>
+                                const handleSel = (qNum, label) => {
+                                    if (isMultiSelect) {
+                                        const cur = qNumbers.map(n => answers[n]).filter(Boolean);
+                                        if (cur.includes(label)) {
+                                            const toClear = qNumbers.find(n => answers[n] === label);
+                                            if (toClear) handleAnswer(toClear, '');
+                                        } else if (cur.length < qNumbers.length) {
+                                            const emp = qNumbers.find(n => !answers[n]);
+                                            if (emp) handleAnswer(emp, label);
+                                        }
+                                    } else {
+                                        handleAnswer(qNum, label);
+                                    }
+                                };
+
+                                // ── Multi-Select: ONE block with multiple number boxes ──
+                                if (isMultiSelect) {
+                                    return (
+                                        <div key={gIdx} style={{ marginBottom: '24px' }} id={`q-${qNumbers[0]}`}>
+                                            {firstB.mainInstruction && <p style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '15px', color: cs.text }}>{firstB.mainInstruction}</p>}
+
+                                            {/* Number boxes [21] [22] + question text */}
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                                {qNumbers.map(n => (
+                                                    <span key={n} style={{
+                                                        border: `1px solid ${cs.text}`, fontWeight: 'bold', fontSize: '12px',
+                                                        padding: '0 6px', color: cs.text, background: cs.bg,
+                                                        lineHeight: '1.8', flexShrink: 0, borderRadius: '2px', marginTop: '2px'
+                                                    }}>{n}</span>
+                                                ))}
+                                                <span style={{ color: cs.text, fontSize: '15px', lineHeight: '1.5' }}>{firstB.questionText}</span>
                                             </div>
 
-                                            <div style={{ marginLeft: '28px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                {(q.options || []).map((opt, oIdx) => {
+                                            {/* Shared options */}
+                                            <div style={{ marginLeft: '34px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                {(firstB.options || []).map((opt, oIdx) => {
                                                     const letter = String.fromCharCode(65 + oIdx);
                                                     const text = (opt || '').replace(/^[A-Z]\.\s*/, '');
-                                                    const isSel = answers[q.displayNumber] === letter;
+                                                    const isSel = qNumbers.some(n => answers[n] === letter);
                                                     return (
-                                                        <div key={oIdx} onClick={() => handleSel(q.displayNumber, letter)}
+                                                        <div key={oIdx} onClick={() => handleSel(qNumbers[0], letter)}
                                                             style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
-                                                            <span style={{ fontWeight: 'bold', width: '16px', flexShrink: 0, fontSize: '14px' }}>{letter}</span>
+                                                            <span style={{ fontWeight: 'bold', width: '16px', flexShrink: 0, fontSize: '14px', color: cs.text }}>{letter}</span>
                                                             <div style={{
                                                                 width: '18px', height: '18px', border: `1px solid ${isSel ? '#1f2937' : '#d1d5db'}`,
                                                                 background: isSel ? '#1f2937' : 'white', flexShrink: 0, marginTop: '1px',
-                                                                display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%'
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                borderRadius: isMultiSelect ? '3px' : '50%'
                                                             }}>
-                                                                {isSel && <div style={{ width: '6px', height: '6px', background: 'white', borderRadius: '50%' }} />}
+                                                                {isSel && <div style={{ width: '10px', height: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" stroke="white" strokeWidth="2" fill="none" /></svg>
+                                                                </div>}
                                                             </div>
-                                                            <span style={{ color: isSel ? '#111827' : '#374151', fontWeight: isSel ? '600' : '400', fontSize: '14px' }}>{text}</span>
+                                                            <span style={{ color: cs.text, fontWeight: isSel ? '600' : '400', fontSize: '14px' }}>{text}</span>
                                                         </div>
                                                     );
                                                 })}
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            );
-                        }
+                                    );
+                                }
 
-                        // ── Matching ──
-                        if (grp.type === 'matching' || grp.type === 'matching-features' || grp.type === 'matching-headings') {
-                            const firstQNum = blocks[0].displayNumber;
-                            const lastQNum = blocks[blocks.length - 1].displayNumber;
-                            const hasLongOpts = (firstB.options || []).some(o => (o || '').length > 4);
-                            return (
-                                <div key={gIdx} style={{ marginBottom: '12px' }}>
-                                    {/* Instruction text */}
-                                    {firstB.instruction && <p style={{ marginBottom: '4px', fontWeight: 'bold' }}>{firstB.instruction}</p>}
-                                    {firstB.subInstruction && <p style={{ marginBottom: '8px', fontStyle: 'italic', color: '#4b5563', fontSize: '13px' }}>{firstB.subInstruction}</p>}
-                                    {hasLongOpts && (
-                                        <div style={{ border: '1px solid #d1d5db', marginBottom: '12px', maxWidth: '480px' }}>
-                                            {(firstB.options || []).map((opt, oIdx) => {
-                                                const letter = (opt || '').match(/^([A-Z])\./)?.[1] || String.fromCharCode(65 + oIdx);
-                                                const text = (opt || '').replace(/^[A-Z]\.\s*/, '');
-                                                return (
-                                                    <div key={oIdx} style={{ display: 'flex', gap: '12px', padding: '5px 10px', borderBottom: oIdx < (firstB.options.length - 1) ? '1px solid #e5e7eb' : 'none', fontSize: '13px' }}>
-                                                        <span style={{ fontWeight: 'bold', width: '16px', flexShrink: 0 }}>{letter}</span>
-                                                        <span style={{ color: '#374151' }}>{text}</span>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '600px' }}>
-                                        {blocks.map(q => (
-                                            <div key={q.displayNumber} id={`q-${q.displayNumber}`}
-                                                style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                {/* [N] box */}
-                                                <span style={{
-                                                    border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
-                                                    padding: '0 6px', color: '#111827', background: 'white',
-                                                    lineHeight: '1.8', flexShrink: 0, borderRadius: '2px'
-                                                }}>{q.displayNumber}</span>
-                                                <span style={{ flex: 1, color: '#1f2937', fontSize: '15px' }}>{q.questionText}</span>
-                                                <select value={answers[q.displayNumber] || ""} onChange={e => handleAnswer(q.displayNumber, e.target.value)}
-                                                    style={{ border: '1px solid #d1d5db', padding: '4px 8px', fontSize: '14px', background: 'white', cursor: 'pointer', width: '70px', textAlign: 'center', borderRadius: '2px' }}>
-                                                    <option value=""></option>
-                                                    {(firstB.options || []).map((_, oIdx) => (
-                                                        <option key={oIdx} value={String.fromCharCode(65 + oIdx)}>{String.fromCharCode(65 + oIdx)}</option>
-                                                    ))}
-                                                </select>
+                                // ── Single-Select: each question separately ──
+                                return (
+                                    <div key={gIdx} style={{ marginBottom: '24px' }}>
+                                        {firstB.mainInstruction && <p style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '15px', color: cs.text }}>{firstB.mainInstruction}</p>}
+
+                                        {blocks.map((q, qidx) => (
+                                            <div key={qidx} style={{ marginBottom: '20px' }} id={`q-${q.displayNumber}`}>
+                                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
+                                                    {/* [N] box */}
+                                                    <span style={{
+                                                        border: `1px solid ${cs.text}`, fontWeight: 'bold', fontSize: '12px',
+                                                        padding: '0 6px', color: cs.text, background: cs.bg,
+                                                        lineHeight: '1.8', flexShrink: 0, borderRadius: '2px', marginTop: '2px'
+                                                    }}>{q.displayNumber}</span>
+                                                    <span style={{ color: cs.text, fontSize: '15px', lineHeight: '1.5' }}>{q.questionText}</span>
+                                                </div>
+
+                                                <div style={{ marginLeft: '28px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                    {(q.options || []).map((opt, oIdx) => {
+                                                        const letter = String.fromCharCode(65 + oIdx);
+                                                        const text = (opt || '').replace(/^[A-Z]\.\s*/, '');
+                                                        const isSel = answers[q.displayNumber] === letter;
+                                                        return (
+                                                            <div key={oIdx} onClick={() => handleSel(q.displayNumber, letter)}
+                                                                style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+                                                                <span style={{ fontWeight: 'bold', width: '16px', flexShrink: 0, fontSize: '14px', color: cs.text }}>{letter}</span>
+                                                                <div style={{
+                                                                    width: '18px', height: '18px', border: `1px solid ${isSel ? '#1f2937' : '#d1d5db'}`,
+                                                                    background: isSel ? '#1f2937' : 'white', flexShrink: 0, marginTop: '1px',
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%'
+                                                                }}>
+                                                                    {isSel && <div style={{ width: '6px', height: '6px', background: 'white', borderRadius: '50%' }} />}
+                                                                </div>
+                                                                <span style={{ color: cs.text, fontWeight: isSel ? '600' : '400', fontSize: '14px' }}>{text}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
-                                </div>
-                            );
-                        }
+                                );
+                            }
 
-                        // ── Map / Diagram Labeling ──
-                        if (grp.type === 'map-labeling' || grp.type === 'diagram-labeling') {
-                            return (
-                                <div key={gIdx} style={{ marginBottom: '20px' }}>
-                                    {/* Section image for map/diagram */}
-                                    {firstB.imageUrl && (
-                                        <div style={{ marginBottom: '16px' }}>
-                                            <img src={firstB.imageUrl} alt="Map/Diagram" style={{ maxWidth: '100%', maxHeight: '400px', border: '1px solid #d1d5db' }} />
-                                        </div>
-                                    )}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '500px' }}>
-                                        {blocks.map(q => (
-                                            <div key={q.displayNumber} id={`q-${q.displayNumber}`}
-                                                style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                {/* [N] box */}
-                                                <span style={{
-                                                    border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
-                                                    padding: '0 6px', color: '#111827', background: 'white',
-                                                    lineHeight: '1.8', flexShrink: 0, borderRadius: '2px'
-                                                }}>{q.displayNumber}</span>
-                                                <span style={{ flex: 1, color: '#1f2937', fontSize: '15px' }}>{q.questionText}</span>
-                                                <select value={answers[q.displayNumber] || ""}
-                                                    onChange={e => handleAnswer(q.displayNumber, e.target.value)}
-                                                    style={{
-                                                        border: '1px solid #d1d5db', padding: '4px 8px', fontSize: '14px',
-                                                        background: 'white', cursor: 'pointer', width: '80px',
-                                                        textAlign: 'center', borderRadius: '2px'
-                                                    }}>
-                                                    <option value=""></option>
-                                                    {(q.options || []).map((opt, oIdx) => (
-                                                        <option key={oIdx} value={opt}>{opt}</option>
-                                                    ))}
-                                                </select>
+                            // ── Matching ──
+                            if (grp.type === 'matching' || grp.type === 'matching-features' || grp.type === 'matching-headings') {
+                                const firstQNum = blocks[0].displayNumber;
+                                const lastQNum = blocks[blocks.length - 1].displayNumber;
+                                const hasLongOpts = (firstB.options || []).some(o => (o || '').length > 4);
+                                return (
+                                    <div key={gIdx} style={{ marginBottom: '12px' }}>
+                                        {/* Instruction text */}
+                                        {firstB.instruction && <p style={{ marginBottom: '4px', fontWeight: 'bold' }}>{firstB.instruction}</p>}
+                                        {firstB.subInstruction && <p style={{ marginBottom: '8px', fontStyle: 'italic', color: '#4b5563', fontSize: '13px' }}>{firstB.subInstruction}</p>}
+                                        {hasLongOpts && (
+                                            <div style={{ border: '1px solid #d1d5db', marginBottom: '12px', maxWidth: '480px' }}>
+                                                {(firstB.options || []).map((opt, oIdx) => {
+                                                    const letter = (opt || '').match(/^([A-Z])\./)?.[1] || String.fromCharCode(65 + oIdx);
+                                                    const text = (opt || '').replace(/^[A-Z]\.\s*/, '');
+                                                    return (
+                                                        <div key={oIdx} style={{ display: 'flex', gap: '12px', padding: '5px 10px', borderBottom: oIdx < (firstB.options.length - 1) ? '1px solid #e5e7eb' : 'none', fontSize: '13px' }}>
+                                                            <span style={{ fontWeight: 'bold', width: '16px', flexShrink: 0 }}>{letter}</span>
+                                                            <span style={{ color: cs.text }}>{text}</span>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
-                                        ))}
+                                        )}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '600px' }}>
+                                            {blocks.map(q => (
+                                                <div key={q.displayNumber} id={`q-${q.displayNumber}`}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    {/* [N] box */}
+                                                    <span style={{
+                                                        border: `1px solid ${cs.text}`, fontWeight: 'bold', fontSize: '12px',
+                                                        padding: '0 6px', color: cs.text, background: cs.bg,
+                                                        lineHeight: '1.8', flexShrink: 0, borderRadius: '2px'
+                                                    }}>{q.displayNumber}</span>
+                                                    <span style={{ flex: 1, color: cs.text, fontSize: '15px' }}>{q.questionText}</span>
+                                                    <select value={answers[q.displayNumber] || ""} onChange={e => handleAnswer(q.displayNumber, e.target.value)}
+                                                        style={{ border: `1px solid ${cs.text}`, padding: '4px 8px', fontSize: '14px', background: cs.bg, color: cs.text, cursor: 'pointer', width: '70px', textAlign: 'center', borderRadius: '2px' }}>
+                                                        <option value=""></option>
+                                                        {(firstB.options || []).map((_, oIdx) => (
+                                                            <option key={oIdx} value={String.fromCharCode(65 + oIdx)}>{String.fromCharCode(65 + oIdx)}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        }
+                                );
+                            }
 
-                        // ── Fallback: any other type ──
-                        return (
-                            <div key={gIdx} style={{ marginBottom: '16px' }}>
-                                {blocks.map(q => (
-                                    <div key={q.displayNumber} id={`q-${q.displayNumber}`}
-                                        style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '8px' }}>
-                                        <span style={{ border: '1px solid #6b7280', fontWeight: 'bold', fontSize: '11px', padding: '0 3px', color: '#374151', flexShrink: 0 }}>{q.displayNumber}</span>
-                                        <span style={{ flex: 1, color: '#111827' }}>{q.questionText}</span>
-                                        <input type="text" value={answers[q.displayNumber] || ''}
-                                            onChange={e => handleAnswer(q.displayNumber, e.target.value)}
-                                            style={{ borderBottom: '1px solid #6b7280', width: '130px', fontSize: '14px', outline: 'none', background: 'transparent', color: '#111827', flexShrink: 0 }} />
+                            // ── Map / Diagram Labeling ──
+                            if (grp.type === 'map-labeling' || grp.type === 'diagram-labeling') {
+                                return (
+                                    <div key={gIdx} style={{ marginBottom: '20px' }}>
+                                        {/* Section image for map/diagram */}
+                                        {firstB.imageUrl && (
+                                            <div style={{ marginBottom: '16px' }}>
+                                                <img src={firstB.imageUrl} alt="Map/Diagram" style={{ maxWidth: '100%', maxHeight: '400px', border: '1px solid #d1d5db' }} />
+                                            </div>
+                                        )}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '500px' }}>
+                                            {blocks.map(q => (
+                                                <div key={q.displayNumber} id={`q-${q.displayNumber}`}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    {/* [N] box */}
+                                                    <span style={{
+                                                        border: `1px solid ${cs.text}`, fontWeight: 'bold', fontSize: '12px',
+                                                        padding: '0 6px', color: cs.text, background: cs.bg,
+                                                        lineHeight: '1.8', flexShrink: 0, borderRadius: '2px'
+                                                    }}>{q.displayNumber}</span>
+                                                    <span style={{ flex: 1, color: cs.text, fontSize: '15px' }}>{q.questionText}</span>
+                                                    <select value={answers[q.displayNumber] || ""}
+                                                        onChange={e => handleAnswer(q.displayNumber, e.target.value)}
+                                                        style={{
+                                                            border: `1px solid ${cs.text}`, padding: '4px 8px', fontSize: '14px',
+                                                            background: cs.bg, color: cs.text, cursor: 'pointer', width: '80px',
+                                                            textAlign: 'center', borderRadius: '2px'
+                                                        }}>
+                                                        <option value=""></option>
+                                                        {(q.options || []).map((opt, oIdx) => (
+                                                            <option key={oIdx} value={opt}>{opt}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                ))}
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
+                                );
+                            }
 
-            {/* ══════════════════════════════════════
-                FIXED BOTTOM NAV — Question numbers + ◄ ►
-            ══════════════════════════════════════ */}
-            <div style={{
-                position: 'fixed', bottom: 0, left: 0, right: 0,
-                background: 'white', borderTop: '1px solid #d1d5db',
-                display: 'flex', alignItems: 'center',
-                height: '46px', padding: '0 8px', zIndex: 100
-            }}>
-                {/* Part label */}
-                <span style={{ fontSize: '15px', fontWeight: 'bold', color: '#111827', marginRight: '16px', flexShrink: 0 }}>
-                    Part {currentSectionIndex + 1}
-                </span>
-
-                {/* Question number buttons — filtered to show only current part */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, overflowX: 'auto', paddingBottom: '2px' }}>
-                    {allRealQuestions
-                        .filter(q => Math.floor((q.displayNumber - 1) / QUESTIONS_PER_PAGE) === currentPage)
-                        .map(q => {
-                            const isAnswered = answers[q.displayNumber] && answers[q.displayNumber] !== '';
-                            return (
-                                <div key={q.displayNumber} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                    {/* Indicator Line Above */}
-                                    <div style={{ width: '28px', height: '2px', background: isAnswered ? '#2563eb' : '#e5e7eb', borderRadius: '1px' }}></div>
-
-                                    <button
-                                        onClick={() => {
-                                            const el = document.getElementById(`q-${q.displayNumber}`);
-                                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                        }}
-                                        style={{
-                                            width: '28px', height: '28px', fontSize: '14px', fontWeight: '500',
-                                            border: isAnswered ? '2px solid #2563eb' : '2px solid transparent',
-                                            background: 'transparent',
-                                            color: '#374151',
-                                            cursor: 'pointer', flexShrink: 0,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            borderRadius: '2px'
-                                        }}>
-                                        {q.displayNumber}
-                                    </button>
-                                </div>
-                            );
+                            return null;
                         })}
-                </div>
-
-                {/* ◄ ► arrows */}
-                <div style={{ display: 'flex', gap: '2px', marginLeft: '8px', flexShrink: 0 }}>
-                    <button onClick={goPrev} disabled={currentPage === 0}
-                        style={{
-                            width: '36px', height: '32px', fontWeight: 'bold', fontSize: '14px', cursor: currentPage === 0 ? 'not-allowed' : 'pointer',
-                            background: currentPage === 0 ? '#f3f4f6' : '#374151', color: currentPage === 0 ? '#9ca3af' : 'white',
-                            border: '1px solid #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>◄</button>
-                    <button onClick={goNext}
-                        style={{
-                            width: '36px', height: '32px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer',
-                            background: '#374151', color: 'white',
-                            border: '1px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
-                        {currentPage === totalPages - 1 ? <FaCheck size={11} /> : '►'}
-                    </button>
-                </div>
-            </div>
-
-            {/* ══════════════════════════════════════
-                SUBMIT MODAL
-            ══════════════════════════════════════ */}
-            {showSubmitModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '16px' }}>
-                    <div style={{ background: 'white', padding: '24px', maxWidth: '360px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.25)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <h3 style={{ fontWeight: 'bold', fontSize: '16px', color: '#1f2937' }}>Submit Listening Test?</h3>
-                            <button onClick={() => setShowSubmitModal(false)} style={{ color: '#9ca3af', cursor: 'pointer', background: 'none', border: 'none', fontSize: '16px' }}>
-                                <FaTimes />
-                            </button>
-                        </div>
-                        <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
-                            <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#1f2937' }}>{answeredCount}<span style={{ fontSize: '18px', color: '#9ca3af' }}>/{totalQuestions}</span></p>
-                            <p style={{ color: '#6b7280', fontSize: '13px', marginTop: '4px' }}>questions answered</p>
-                        </div>
-                        {totalQuestions - answeredCount > 0 && (
-                            <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', padding: '10px', marginBottom: '16px', textAlign: 'center' }}>
-                                <p style={{ color: '#92400e', fontSize: '13px', fontWeight: '600' }}>
-                                    {totalQuestions - answeredCount} question{totalQuestions - answeredCount > 1 ? 's' : ''} unanswered
-                                </p>
-                            </div>
-                        )}
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button onClick={() => setShowSubmitModal(false)}
-                                style={{ flex: 1, padding: '10px', border: '1px solid #d1d5db', color: '#374151', fontWeight: '600', fontSize: '13px', cursor: 'pointer', background: 'white' }}>
-                                Review
-                            </button>
-                            <button onClick={handleSubmit} disabled={isSubmitting}
-                                style={{ flex: 1, padding: '10px', background: '#1f2937', color: 'white', fontWeight: '600', fontSize: '13px', cursor: 'pointer', border: 'none', opacity: isSubmitting ? 0.7 : 1 }}>
-                                {isSubmitting ? 'Submitting...' : 'Submit Test'}
-                            </button>
-                        </div>
                     </div>
                 </div>
-            )}
+
+                {/* ══════════════════════════════════════
+                PAGE NAVIGATION ARROWS — floating in content area (Inspera style)
+            ══════════════════════════════════════ */}
+                <div style={{
+                    position: 'fixed', bottom: '100px', right: '16px',
+                    display: 'flex', gap: '4px', zIndex: 99
+                }}>
+                    <button onClick={goPrev} disabled={currentPage === 0}
+                        style={{
+                            width: '64px', height: '64px', cursor: currentPage === 0 ? 'not-allowed' : 'pointer',
+                            background: currentPage === 0 ? '#c8c8c8' : '#4a4a4a', color: 'white',
+                            border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            borderRadius: '3px'
+                        }}>
+                        <FaArrowLeft size={28} />
+                    </button>
+                    <button onClick={goNext}
+                        style={{
+                            width: '64px', height: '64px', cursor: 'pointer',
+                            background: '#1a1a1a', color: 'white',
+                            border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            borderRadius: '3px'
+                        }}>
+                        <FaArrowRight size={28} />
+                    </button>
+                </div>
+
+                {/* ══════════════════════════════════════
+                FIXED BOTTOM NAV — Inspera Clone (Part + question nums + checkmark)
+            ══════════════════════════════════════ */}
+                <div style={{
+                    position: 'fixed', bottom: 0, left: 0, right: 0,
+                    background: cs.bg, borderTop: `1px solid ${contrastMode === 'black-on-white' ? '#d1d5db' : '#555'}`,
+                    display: 'flex', alignItems: 'center',
+                    height: '46px', padding: '0 12px', zIndex: 100
+                }}>
+                    {/* Part label */}
+                    <span style={{ fontSize: '14px', fontWeight: 'bold', color: cs.text, marginRight: '12px', flexShrink: 0 }}>
+                        Part {currentSectionIndex + 1}
+                    </span>
+
+                    {/* Question number buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flex: 1 }}>
+                        {allRealQuestions
+                            .filter(q => Math.floor((q.displayNumber - 1) / QUESTIONS_PER_PAGE) === currentPage)
+                            .map(q => {
+                                const isAnswered = answers[q.displayNumber] && answers[q.displayNumber] !== '';
+                                return (
+                                    <div key={q.displayNumber} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                        {/* Blue underline indicator for answered */}
+                                        <div style={{ width: '22px', height: '3px', background: isAnswered ? '#2563eb' : 'transparent', marginBottom: '1px' }}></div>
+                                        <button
+                                            onClick={() => {
+                                                const el = document.getElementById(`q-${q.displayNumber}`);
+                                                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            }}
+                                            style={{
+                                                width: '22px', height: '22px', fontSize: '13px', fontWeight: '400',
+                                                border: isAnswered ? '1px solid #2563eb' : '1px solid transparent',
+                                                background: 'transparent',
+                                                color: cs.text,
+                                                cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                borderRadius: '2px', padding: 0
+                                            }}>
+                                            {q.displayNumber}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                    </div>
+
+                    {/* Checkmark submit button (far right) */}
+                    <button onClick={() => setShowSubmitModal(true)}
+                        style={{
+                            marginLeft: 'auto', width: '42px', height: '42px', cursor: 'pointer',
+                            background: '#e5e7eb', border: 'none',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            flexShrink: 0, borderRadius: '3px'
+                        }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* ══════════════════════════════════════
+                SUBMIT MODAL
+            ══════════════════════════════════════ */}
+                {showSubmitModal && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '16px' }}>
+                        <div style={{ background: 'white', padding: '24px', maxWidth: '360px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.25)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                <h3 style={{ fontWeight: 'bold', fontSize: '16px', color: '#1f2937' }}>Submit Listening Test?</h3>
+                                <button onClick={() => setShowSubmitModal(false)} style={{ color: '#9ca3af', cursor: 'pointer', background: 'none', border: 'none', fontSize: '16px' }}>
+                                    <FaTimes />
+                                </button>
+                            </div>
+                            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
+                                <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#1f2937' }}>{answeredCount}<span style={{ fontSize: '18px', color: '#9ca3af' }}>/{totalQuestions}</span></p>
+                                <p style={{ color: '#6b7280', fontSize: '13px', marginTop: '4px' }}>questions answered</p>
+                            </div>
+                            {totalQuestions - answeredCount > 0 && (
+                                <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', padding: '10px', marginBottom: '16px', textAlign: 'center' }}>
+                                    <p style={{ color: '#92400e', fontSize: '13px', fontWeight: '600' }}>
+                                        {totalQuestions - answeredCount} question{totalQuestions - answeredCount > 1 ? 's' : ''} unanswered
+                                    </p>
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button onClick={() => setShowSubmitModal(false)}
+                                    style={{ flex: 1, padding: '10px', border: '1px solid #d1d5db', color: '#374151', fontWeight: '600', fontSize: '13px', cursor: 'pointer', background: 'white' }}>
+                                    Review
+                                </button>
+                                <button onClick={handleSubmit} disabled={isSubmitting}
+                                    style={{ flex: 1, padding: '10px', background: '#1f2937', color: 'white', fontWeight: '600', fontSize: '13px', cursor: 'pointer', border: 'none', opacity: isSubmitting ? 0.7 : 1 }}>
+                                    {isSubmitting ? 'Submitting...' : 'Submit Test'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ══════════════════════════════════════
+                    OPTIONS MENU — Inspera Style
+                ══════════════════════════════════════ */}
+                {showOptionsMenu && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 200, paddingTop: '60px' }}>
+                        <div style={{ background: 'white', maxWidth: '520px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', borderRadius: '4px', overflow: 'hidden' }}>
+
+                            {/* ── MAIN OPTIONS VIEW ── */}
+                            {optionsView === 'main' && (
+                                <div>
+                                    {/* Header */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
+                                        <div></div>
+                                        <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', fontFamily: 'Arial, sans-serif', margin: 0 }}>Options</h2>
+                                        <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#000', padding: '4px' }}>✕</button>
+                                    </div>
+
+                                    {/* Go to submission page */}
+                                    <div style={{ padding: '0 24px 20px' }}>
+                                        <button onClick={() => { setShowOptionsMenu(false); setShowSubmitModal(true); }}
+                                            style={{
+                                                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                padding: '16px 20px', background: '#e41e2b', color: 'white', border: 'none',
+                                                borderRadius: '6px', fontSize: '16px', fontWeight: '500', cursor: 'pointer',
+                                                fontFamily: 'Arial, sans-serif'
+                                            }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+                                                <span>Go to submission page</span>
+                                            </div>
+                                            <span style={{ fontSize: '20px' }}>›</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Contrast option */}
+                                    <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 24px' }}></div>
+                                    <button onClick={() => setOptionsView('contrast')}
+                                        style={{
+                                            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            padding: '18px 24px', background: 'none', border: 'none', cursor: 'pointer',
+                                            fontFamily: 'Arial, sans-serif'
+                                        }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="#666"><circle cx="12" cy="12" r="10" fill="none" stroke="#666" strokeWidth="2" /><path d="M12 2a10 10 0 0 1 0 20z" fill="#666" /></svg>
+                                            <span style={{ fontSize: '16px', color: '#000' }}>Contrast</span>
+                                        </div>
+                                        <span style={{ fontSize: '20px', color: '#666' }}>›</span>
+                                    </button>
+
+                                    {/* Text size option */}
+                                    <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 24px' }}></div>
+                                    <button onClick={() => setOptionsView('textsize')}
+                                        style={{
+                                            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            padding: '18px 24px', background: 'none', border: 'none', cursor: 'pointer',
+                                            fontFamily: 'Arial, sans-serif'
+                                        }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="#666"><circle cx="11" cy="11" r="7" fill="none" stroke="#666" strokeWidth="2" /><line x1="16" y1="16" x2="21" y2="21" stroke="#666" strokeWidth="2" /><text x="8" y="14" fontSize="10" fill="#666" fontWeight="bold">A</text></svg>
+                                            <span style={{ fontSize: '16px', color: '#000' }}>Text size</span>
+                                        </div>
+                                        <span style={{ fontSize: '20px', color: '#666' }}>›</span>
+                                    </button>
+                                    <div style={{ height: '16px' }}></div>
+                                </div>
+                            )}
+
+                            {/* ── CONTRAST SUB-PANEL ── */}
+                            {optionsView === 'contrast' && (
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
+                                        <button onClick={() => setOptionsView('main')} style={{ background: 'none', border: 'none', fontSize: '15px', cursor: 'pointer', color: '#000' }}>Options</button>
+                                        <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', fontFamily: 'Arial, sans-serif', margin: 0 }}>Contrast</h2>
+                                        <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#000', padding: '4px' }}>✕</button>
+                                    </div>
+                                    <div style={{ margin: '8px 24px 24px', border: '1px solid #d1d5db', borderRadius: '6px' }}>
+                                        {[
+                                            { key: 'black-on-white', label: 'Black on white' },
+                                            { key: 'white-on-black', label: 'White on black' },
+                                            { key: 'yellow-on-black', label: 'Yellow on black' }
+                                        ].map((opt, idx) => (
+                                            <button key={opt.key}
+                                                onClick={() => setContrastMode(opt.key)}
+                                                style={{
+                                                    width: '100%', display: 'flex', alignItems: 'center', gap: '14px',
+                                                    padding: '16px 20px', background: 'none', border: 'none',
+                                                    borderBottom: idx < 2 ? '1px solid #e5e7eb' : 'none',
+                                                    cursor: 'pointer', fontFamily: 'Arial, sans-serif'
+                                                }}>
+                                                {contrastMode === opt.key ? (
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#333"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
+                                                ) : (
+                                                    <span style={{ width: '20px' }}></span>
+                                                )}
+                                                <span style={{ fontSize: '16px', color: '#000' }}>{opt.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── TEXT SIZE SUB-PANEL ── */}
+                            {optionsView === 'textsize' && (
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
+                                        <button onClick={() => setOptionsView('main')} style={{ background: 'none', border: 'none', fontSize: '15px', cursor: 'pointer', color: '#000' }}>Options</button>
+                                        <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', fontFamily: 'Arial, sans-serif', margin: 0 }}>Text size</h2>
+                                        <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#000', padding: '4px' }}>✕</button>
+                                    </div>
+                                    <div style={{ margin: '8px 24px 24px', border: '1px solid #d1d5db', borderRadius: '6px' }}>
+                                        {[
+                                            { key: 'regular', label: 'Regular' },
+                                            { key: 'large', label: 'Large' },
+                                            { key: 'extra-large', label: 'Extra large' }
+                                        ].map((opt, idx) => (
+                                            <button key={opt.key}
+                                                onClick={() => setTextSizeMode(opt.key)}
+                                                style={{
+                                                    width: '100%', display: 'flex', alignItems: 'center', gap: '14px',
+                                                    padding: '16px 20px', background: 'none', border: 'none',
+                                                    borderBottom: idx < 2 ? '1px solid #e5e7eb' : 'none',
+                                                    cursor: 'pointer', fontFamily: 'Arial, sans-serif'
+                                                }}>
+                                                {textSizeMode === opt.key ? (
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#333"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
+                                                ) : (
+                                                    <span style={{ width: '20px' }}></span>
+                                                )}
+                                                <span style={{ fontSize: '16px', color: '#000' }}>{opt.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NoteCompletionRow — IELTS Inline Style
-// Splits at ________ and places [N] + input INLINE in the sentence
-// e.g. "beach does not have [1][input] on it"
+// NoteCompletionRow — IELTS Integrated Box Style
 // ─────────────────────────────────────────────────────────────────────────────
-function NoteCompletionRow({ q, answers, handleAnswer }) {
+function NoteCompletionRow({ q, answers, handleAnswer, textColor = '#000' }) {
     const rawText = q.questionText || '';
 
-    // Normalize: replace {blank} with ________ so both formats work
-    const normalizedText = rawText.replace(/\{blank\}/g, '________');
+    // Handle header rows (e.g. "**Dining table**")
+    const isHeader = rawText.startsWith('**') && rawText.endsWith('**');
+    if (isHeader) {
+        return (
+            <div style={{
+                fontWeight: 'bold',
+                fontSize: '16px',
+                marginTop: '18px',
+                marginBottom: '8px',
+                color: textColor,
+                fontFamily: 'Arial, sans-serif'
+            }}>
+                {rawText.replace(/\*\*/g, '')}
+            </div>
+        );
+    }
 
-    // Remove redundant [N] patterns embedded in questionText
+    // Normalize: replace {blank} with ________
+    const normalizedText = rawText.replace(/\{blank\}/g, '________');
     const cleanedText = normalizedText.replace(/\[\d+\]/g, '').trim();
 
-    // The inline [N] number box + Input field
+    // Single box input — number shows centered when empty, answer replaces it
+    const answerValue = answers[q.displayNumber] || '';
     const InlineInput = (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', verticalAlign: 'middle', margin: '0 4px' }}>
-            <span style={{
-                border: '1px solid #374151', fontWeight: 'bold', fontSize: '11px',
-                minWidth: '20px', height: '20px', display: 'inline-flex', alignItems: 'center',
-                justifyContent: 'center', color: '#111827', background: '#f3f4f6',
-                flexShrink: 0, borderRadius: '2px', padding: '0 4px'
-            }}>{q.displayNumber}</span>
+        <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            verticalAlign: 'middle',
+            margin: '0 6px',
+            position: 'relative',
+            border: `1.5px solid ${textColor}`,
+            background: 'transparent',
+            width: '190px',
+            height: '32px'
+        }}>
+            {/* Question number — centered, visible only when input is empty */}
+            {!answerValue && (
+                <span style={{
+                    position: 'absolute',
+                    fontWeight: 'bold',
+                    fontSize: '15px',
+                    color: textColor,
+                    pointerEvents: 'none',
+                    userSelect: 'none'
+                }}>{q.displayNumber}</span>
+            )}
             <input
                 type="text"
-                value={answers[q.displayNumber] || ''}
+                value={answerValue}
                 onChange={e => handleAnswer(q.displayNumber, e.target.value)}
+                autoComplete="off"
                 style={{
-                    border: '1px solid #d1d5db', borderBottom: '2px solid #6b7280',
-                    width: '130px', fontSize: '14px', outline: 'none',
-                    background: '#fff', color: '#111827',
-                    padding: '2px 8px', borderRadius: '2px'
+                    border: 'none',
+                    width: '100%',
+                    height: '100%',
+                    fontSize: '15px',
+                    outline: 'none',
+                    background: 'transparent',
+                    color: textColor,
+                    padding: '0 8px',
+                    textAlign: 'center',
+                    fontFamily: 'Arial, sans-serif'
                 }}
             />
         </span>
     );
 
-    // Split at ________ (3+ underscores) → place input inline inside sentence
     const blankPattern = /_{3,}/;
     const parts = cleanedText.split(blankPattern);
 
+    const rowStyle = {
+        display: 'flex',
+        alignItems: 'center',
+        marginBottom: '1px',
+        fontSize: '15.5px',
+        color: textColor,
+        lineHeight: '1.5',
+        fontFamily: 'Arial, sans-serif',
+        paddingLeft: '15px'
+    };
+
     if (parts.length >= 2) {
-        // INLINE format: "text before" [N][input] "text after"
         return (
-            <li id={`q-${q.displayNumber}`}
-                style={{ marginBottom: '3px', fontSize: '14px', color: '#111827', lineHeight: '1.7' }}>
-                <span style={{ verticalAlign: 'middle' }}>{parts[0].trimEnd()}</span>
-                {InlineInput}
-                {parts[1].trimStart() && (
-                    <span style={{ verticalAlign: 'middle' }}>{parts[1].trimStart()}</span>
-                )}
-            </li>
+            <div id={`q-${q.displayNumber}`} style={rowStyle}>
+                <span style={{ color: textColor, fontSize: '18px', marginRight: '10px' }}>•</span>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ verticalAlign: 'middle' }}>{parts[0]}</span>
+                    {InlineInput}
+                    <span style={{ verticalAlign: 'middle' }}>{parts[1]}</span>
+                </div>
+            </div>
         );
     }
 
-    // Fallback: no blank found — append input at end
     return (
-        <li id={`q-${q.displayNumber}`}
-            style={{ marginBottom: '7px', fontSize: '14px', color: '#111827', lineHeight: '1.8' }}>
-            <span style={{ verticalAlign: 'middle' }}>{cleanedText}</span>
-            {InlineInput}
-        </li>
+        <div id={`q-${q.displayNumber}`} style={rowStyle}>
+            <span style={{ color: textColor, fontSize: '18px', marginRight: '10px' }}>•</span>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ verticalAlign: 'middle' }}>{cleanedText}</span>
+                {InlineInput}
+            </div>
+        </div>
     );
 }
