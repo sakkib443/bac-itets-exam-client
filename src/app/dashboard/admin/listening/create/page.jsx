@@ -94,6 +94,25 @@ function emptyQuestion(num) {
 // QUESTION BLOCK EDITOR
 // ═══════════════════════════════════════════════════════
 function QuestionBlock({ block, index, onChange, onDelete, questionNumber }) {
+    const [instrImgUploading, setInstrImgUploading] = useState(false);
+
+    const handleInstrImageUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setInstrImgUploading(true);
+        try {
+            const result = await uploadImage(file);
+            if (result.success && result.data?.url) {
+                onChange({ ...block, imageUrl: result.data.url });
+            }
+        } catch (err) {
+            console.error("Image upload failed:", err);
+            alert("Image upload failed: " + err.message);
+        } finally {
+            setInstrImgUploading(false);
+        }
+    };
+
     if (block.blockType === "instruction") {
         return (
             <div className="border border-amber-200 bg-amber-50 rounded-lg p-3">
@@ -113,6 +132,47 @@ function QuestionBlock({ block, index, onChange, onDelete, questionNumber }) {
                     placeholder="Instruction text (HTML supported)..."
                 />
                 <p className="text-[10px] text-amber-600 mt-1">HTML supported: &lt;strong&gt;, &lt;br/&gt;, &lt;ul&gt;&lt;li&gt;, &lt;table&gt;...</p>
+
+                {/* ── Image Upload for Instruction (Map / Diagram) ── */}
+                <div className="mt-2 pt-2 border-t border-amber-200">
+                    <label className="text-[10px] font-semibold text-blue-600 flex items-center gap-1 mb-1">
+                        <FaImage size={9} /> Attach Image (Map / Diagram)
+                    </label>
+                    {block.imageUrl ? (
+                        <div>
+                            <img src={block.imageUrl} alt="Instruction image" className="max-h-40 rounded border border-gray-200 mb-1.5" />
+                            <div className="flex items-center gap-2">
+                                <input
+                                    value={block.imageUrl}
+                                    onChange={e => onChange({ ...block, imageUrl: e.target.value })}
+                                    className="flex-1 text-[10px] border border-gray-200 rounded px-2 py-1 outline-none font-mono bg-white focus:border-blue-400"
+                                    placeholder="Image URL"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => onChange({ ...block, imageUrl: '' })}
+                                    className="text-[10px] text-red-500 hover:text-red-700 cursor-pointer flex items-center gap-0.5"
+                                >
+                                    <FaTimes size={8} /> Remove
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <label className="flex items-center gap-1 px-2 py-1.5 bg-blue-600 text-white rounded text-[10px] font-medium cursor-pointer hover:bg-blue-700 transition-colors">
+                                {instrImgUploading ? <FaSpinner className="animate-spin" size={8} /> : <FaUpload size={8} />}
+                                {instrImgUploading ? 'Uploading...' : 'Upload'}
+                                <input type="file" accept="image/*" onChange={handleInstrImageUpload} className="hidden" disabled={instrImgUploading} />
+                            </label>
+                            <input
+                                value={block.imageUrl || ''}
+                                onChange={e => onChange({ ...block, imageUrl: e.target.value })}
+                                className="flex-1 text-[10px] border border-gray-200 rounded px-2 py-1 outline-none font-mono focus:border-blue-400"
+                                placeholder="or paste image URL..."
+                            />
+                        </div>
+                    )}
+                </div>
             </div>
         );
     }
@@ -292,6 +352,24 @@ function QuestionBlock({ block, index, onChange, onDelete, questionNumber }) {
 // ═══════════════════════════════════════════════════════
 function SectionPanel({ section, onChange }) {
     const [collapsed, setCollapsed] = useState(false);
+    const [imgUploading, setImgUploading] = useState(false);
+
+    const handleSectionImageUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setImgUploading(true);
+        try {
+            const result = await uploadImage(file);
+            if (result.success && result.data?.url) {
+                onChange({ ...section, imageUrl: result.data.url });
+            }
+        } catch (err) {
+            console.error("Image upload failed:", err);
+            alert("Image upload failed: " + err.message);
+        } finally {
+            setImgUploading(false);
+        }
+    };
 
     const questions = section.questions || [];
     const qCount = questions.filter(b => b.blockType === "question").length;
@@ -335,6 +413,11 @@ function SectionPanel({ section, onChange }) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    {section.imageUrl && (
+                        <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <FaImage size={9} /> Image set
+                        </span>
+                    )}
                     {section.audioUrl && (
                         <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <FaVolumeUp size={9} /> Audio set
@@ -403,6 +486,50 @@ function SectionPanel({ section, onChange }) {
                                 </div>
                             )}
                         </div>
+                    </div>
+
+                    {/* Section Image (Map / Diagram) */}
+                    <div className="col-span-2">
+                        <label className="text-xs font-semibold text-gray-600 mb-1 flex items-center gap-2">
+                            <FaImage className="text-blue-500" size={11} />
+                            Section Image / Map (optional)
+                        </label>
+                        {section.imageUrl ? (
+                            <div className="mt-1">
+                                <img src={section.imageUrl} alt="Section map/diagram" className="max-h-56 rounded border border-gray-200 mb-2" />
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        value={section.imageUrl}
+                                        onChange={e => onChange({ ...section, imageUrl: e.target.value })}
+                                        className="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 outline-none font-mono bg-white focus:border-blue-400"
+                                        placeholder="Image URL"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => onChange({ ...section, imageUrl: '' })}
+                                        className="text-xs text-red-500 hover:text-red-700 cursor-pointer flex items-center gap-1"
+                                    >
+                                        <FaTimes size={10} /> Remove
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3 mt-1">
+                                <label className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium cursor-pointer hover:bg-blue-700 transition-colors">
+                                    {imgUploading ? <FaSpinner className="animate-spin" size={10} /> : <FaUpload size={10} />}
+                                    {imgUploading ? 'Uploading...' : 'Upload Image'}
+                                    <input type="file" accept="image/*" onChange={handleSectionImageUpload} className="hidden" disabled={imgUploading} />
+                                </label>
+                                <span className="text-[10px] text-gray-400">or paste URL →</span>
+                                <input
+                                    value={section.imageUrl || ''}
+                                    onChange={e => onChange({ ...section, imageUrl: e.target.value })}
+                                    className="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 outline-none font-mono focus:border-blue-400"
+                                    placeholder="https://... (map, diagram, plan image)"
+                                />
+                            </div>
+                        )}
+                        <p className="text-[10px] text-gray-400 mt-1">For map labelling or diagram labelling questions — this image will be shown above the questions</p>
                     </div>
 
                     {/* Questions list */}
@@ -503,6 +630,7 @@ function CreateListeningPageContent() {
                             context: s.context || "",
                             instructions: s.instructions || "",
                             audioUrl: s.audioUrl || "",
+                            imageUrl: s.imageUrl || "",
                             questions: s.questions || [],
                         })));
                     }
@@ -539,6 +667,7 @@ function CreateListeningPageContent() {
                     context: s.context || "",
                     instructions: s.instructions || "",
                     audioUrl: s.audioUrl || "",
+                    imageUrl: s.imageUrl || "",
                     questions: s.questions || [],
                 })));
             }

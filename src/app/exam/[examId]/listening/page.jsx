@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import {
     FaCheck,
@@ -19,54 +18,67 @@ import ExamSecurity from "@/components/ExamSecurity";
 const QUESTIONS_PER_PAGE = 10;
 
 // ── Component: Renders Instruction with Embedded Question Inputs ──
-// This ensures table structures (<table>, <tr>, <td>) are preserved from the database
-// while allowing React to manage inputs inside them using Portals.
-const InstructionWithPortals = ({ content, answers, handleAnswer }) => {
-    const [targets, setTargets] = useState({});
+// Uses direct DOM manipulation. React.memo prevents re-renders from answer state changes
+// which would destroy the DOM inputs via dangerouslySetInnerHTML.
+const InstructionWithPortals = React.memo(function InstructionWithPortals({ content, answers, handleAnswer, imageUrl }) {
     const containerRef = useRef(null);
+    const handleAnswerRef = useRef(handleAnswer);
+    handleAnswerRef.current = handleAnswer;
 
-    // CRITICAL: Memoize the processed HTML so it doesn't trigger 
-    // dangerouslySetInnerHTML to overwrite the DOM on every state change/re-render.
+    // Process HTML: replace [N] with actual inline input elements
     const processedHtml = React.useMemo(() => {
         return (content || "").replace(
             /(?:<strong>\s*)?\[(\d+)\](?:\s*<\/strong>)?/g,
             (match, qNum) => {
-                return `<span id="portal-q-${qNum}" class="q-portal-target" style="display: inline-block; min-width: 140px; vertical-align: middle;"></span>`;
+                return `<span class="embedded-q-wrapper" style="display: inline-flex; align-items: center; gap: 6px; margin: 0 4px; vertical-align: middle;">` +
+                    `<span style="border: 1px solid #374151; font-weight: bold; font-size: 11px; min-width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; color: #111827; background: #f3f4f6; line-height: 1; border-radius: 2px; flex-shrink: 0;">${qNum}</span>` +
+                    `<input type="text" data-qnum="${qNum}" class="embedded-q-input" ` +
+                    `style="border: 1px solid #d1d5db; border-bottom: 2px solid #6b7280; width: 120px; font-size: 14px; outline: none; background: white; color: #111827; padding: 3px 6px; border-radius: 2px;" />` +
+                    `</span>`;
             }
         );
     }, [content]);
 
+    // Attach event listeners + set initial values from state (runs on mount)
     useEffect(() => {
-        let attempts = 0;
-        const findTargets = () => {
-            if (containerRef.current) {
-                const found = {};
-                const markers = containerRef.current.querySelectorAll('.q-portal-target');
-                if (markers.length > 0) {
-                    markers.forEach(el => {
-                        const qNum = el.id.replace('portal-q-', '');
-                        found[qNum] = el;
-                    });
-                    setTargets(found);
-                    return true;
-                }
-            }
-            return false;
+        if (!containerRef.current) return;
+        const inputs = containerRef.current.querySelectorAll('.embedded-q-input');
+        if (inputs.length === 0) return;
+
+        const handlers = [];
+        inputs.forEach(input => {
+            const qNum = input.getAttribute('data-qnum');
+
+            // Set initial value from answers state (for when user navigates back)
+            const initialValue = answers[qNum] || answers[parseInt(qNum)] || '';
+            if (initialValue) input.value = initialValue;
+
+            // Attach input event listener
+            const handler = (e) => {
+                handleAnswerRef.current(parseInt(qNum), e.target.value);
+            };
+            input.addEventListener('input', handler);
+            handlers.push({ input, handler });
+        });
+
+        return () => {
+            handlers.forEach(({ input, handler }) => {
+                input.removeEventListener('input', handler);
+            });
         };
+    }, [processedHtml]); // Only re-run when HTML changes (not on answer changes)
 
-        // Poll for targets because dangerouslySetInnerHTML timing can be tricky with complex tables
-        const interval = setInterval(() => {
-            attempts++;
-            if (findTargets() || attempts > 50) {
-                clearInterval(interval);
-            }
-        }, 50);
+    // ── Smart spacing: Detect block type from HTML content ──
+    const raw = (content || '').trim();
+    const isMainHeading = /^<strong[^>]*>[^<]+<\/strong>(<br\/?><strong[^>]*>[^<]+<\/strong>)?$/.test(raw);
+    const isSubHeading = !isMainHeading && raw.startsWith('<strong') && !raw.startsWith('<ul');
+    const isPureList = raw.startsWith('<ul');
 
-        return () => clearInterval(interval);
-    }, [processedHtml]); // Dependency on the memoized HTML
+    const topMargin = isMainHeading ? '32px' : isSubHeading ? '18px' : isPureList ? '0px' : '6px';
+    const bottomMargin = isMainHeading ? '5px' : isSubHeading ? '4px' : isPureList ? '2px' : '4px';
 
     return (
-        <div style={{ marginBottom: '16px', lineHeight: '1.6', color: '#1f2937' }}>
+        <div style={{ marginTop: topMargin, marginBottom: bottomMargin, lineHeight: '1.6', color: '#1f2937' }}>
             <div
                 ref={containerRef}
                 className="instruction-html-container"
@@ -74,30 +86,12 @@ const InstructionWithPortals = ({ content, answers, handleAnswer }) => {
                 style={{ overflowX: 'auto' }}
             />
 
-            {Object.entries(targets).map(([qNum, element]) => (
-                createPortal(
-                    <span key={qNum} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', margin: '0 4px' }}>
-                        <span style={{
-                            border: '1px solid #374151', fontWeight: 'bold', fontSize: '11px',
-                            minWidth: '22px', height: '22px', display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', color: '#111827', background: '#f3f4f6',
-                            lineHeight: '1', borderRadius: '2px', flexShrink: 0
-                        }}>{qNum}</span>
-                        <input
-                            type="text"
-                            value={answers[qNum] || ''}
-                            onChange={e => handleAnswer(qNum, e.target.value)}
-                            style={{
-                                border: '1px solid #d1d5db', borderBottom: '2px solid #6b7280',
-                                width: '100px', fontSize: '14px',
-                                outline: 'none', background: 'white', color: '#111827',
-                                padding: '3px 6px', borderRadius: '2px'
-                            }}
-                        />
-                    </span>,
-                    element
-                )
-            ))}
+            {imageUrl && (
+                <div style={{ marginTop: '8px', marginBottom: '8px' }}>
+                    <img src={imageUrl} alt="Map/Diagram" style={{ maxWidth: '100%', maxHeight: '400px', border: '1px solid #d1d5db', borderRadius: '4px' }} />
+                </div>
+            )}
+
             <style jsx global>{`
                 .instruction-html-container table {
                     border-collapse: collapse;
@@ -115,10 +109,25 @@ const InstructionWithPortals = ({ content, answers, handleAnswer }) => {
                 .instruction-html-container th {
                     background-color: #f9fafb;
                 }
+                .instruction-html-container ul {
+                    list-style: disc;
+                    padding-left: 22px;
+                    margin: 6px 0;
+                }
+                .instruction-html-container li {
+                    margin-bottom: 5px;
+                    font-size: 14px;
+                    line-height: 1.8;
+                    color: #111827;
+                }
             `}</style>
         </div>
     );
-};
+}, (prevProps, nextProps) => {
+    // Only re-render when content or imageUrl changes — NOT when answers/handleAnswer change.
+    // This prevents dangerouslySetInnerHTML from destroying DOM inputs on every keystroke.
+    return prevProps.content === nextProps.content && prevProps.imageUrl === nextProps.imageUrl;
+});
 
 export default function ListeningExamPage() {
     const params = useParams();
@@ -585,6 +594,7 @@ export default function ListeningExamPage() {
                                 <InstructionWithPortals
                                     key={gIdx}
                                     content={grp.block.content}
+                                    imageUrl={grp.block.imageUrl}
                                     answers={answers}
                                     handleAnswer={handleAnswer}
                                     qNumsSet={embeddedQNums}
@@ -600,17 +610,17 @@ export default function ListeningExamPage() {
                             const allEmbedded = blocks.every(b => embeddedQNums.has(b.displayNumber));
                             if (allEmbedded) return null;
                         }
-                        if (grp.type === 'fill-in-blank' || grp.type === 'note-completion' || grp.type === 'sentence-completion' || grp.type === 'form-completion' || grp.type === 'flow-chart-completion' || grp.type === 'summary-completion' || grp.type === 'short-answer') {
+                        if (grp.type === 'fill-in-blank' || grp.type === 'note-completion' || grp.type === 'sentence-completion' || grp.type === 'form-completion' || grp.type === 'flow-chart-completion' || grp.type === 'summary-completion' || grp.type === 'short-answer' || grp.type === 'table-completion') {
                             const firstQNum = blocks[0].displayNumber;
                             const lastQNum = blocks[blocks.length - 1].displayNumber;
                             return (
-                                <div key={gIdx} style={{ marginBottom: '20px' }}>
+                                <div key={gIdx} style={{ marginBottom: '4px' }}>
                                     {/* Instruction from block */}
                                     {firstB.instruction && (
-                                        <p style={{ marginBottom: '8px', color: '#1f2937', fontSize: '15px', fontWeight: 'bold' }}>{firstB.instruction}</p>
+                                        <p style={{ marginBottom: '4px', color: '#1f2937', fontSize: '14px', fontWeight: 'bold' }}>{firstB.instruction}</p>
                                     )}
-                                    {/* Question rows - left aligned bullet list */}
-                                    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {/* Question rows — IELTS-style bullet list with inline inputs */}
+                                    <ul style={{ listStyle: 'disc', paddingLeft: '22px', margin: '0' }}>
                                         {blocks.map(q => (
                                             <NoteCompletionRow key={q.displayNumber} q={q} answers={answers} handleAnswer={handleAnswer} />
                                         ))}
@@ -659,7 +669,7 @@ export default function ListeningExamPage() {
                                         </div>
 
                                         {/* Shared options */}
-                                        <div style={{ marginLeft: '34px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ marginLeft: '34px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                             {(firstB.options || []).map((opt, oIdx) => {
                                                 const letter = String.fromCharCode(65 + oIdx);
                                                 const text = (opt || '').replace(/^[A-Z]\.\s*/, '');
@@ -693,8 +703,8 @@ export default function ListeningExamPage() {
                                     {firstB.mainInstruction && <p style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '15px' }}>{firstB.mainInstruction}</p>}
 
                                     {blocks.map((q, qidx) => (
-                                        <div key={qidx} style={{ marginBottom: '16px' }} id={`q-${q.displayNumber}`}>
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
+                                        <div key={qidx} style={{ marginBottom: '20px' }} id={`q-${q.displayNumber}`}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
                                                 {/* [N] box */}
                                                 <span style={{
                                                     border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
@@ -704,7 +714,7 @@ export default function ListeningExamPage() {
                                                 <span style={{ color: '#1f2937', fontSize: '15px', lineHeight: '1.5' }}>{q.questionText}</span>
                                             </div>
 
-                                            <div style={{ marginLeft: '34px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <div style={{ marginLeft: '28px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                                 {(q.options || []).map((opt, oIdx) => {
                                                     const letter = String.fromCharCode(65 + oIdx);
                                                     const text = (opt || '').replace(/^[A-Z]\.\s*/, '');
@@ -737,7 +747,7 @@ export default function ListeningExamPage() {
                             const lastQNum = blocks[blocks.length - 1].displayNumber;
                             const hasLongOpts = (firstB.options || []).some(o => (o || '').length > 4);
                             return (
-                                <div key={gIdx} style={{ marginBottom: '20px' }}>
+                                <div key={gIdx} style={{ marginBottom: '12px' }}>
                                     {/* Instruction text */}
                                     {firstB.instruction && <p style={{ marginBottom: '4px', fontWeight: 'bold' }}>{firstB.instruction}</p>}
                                     {firstB.subInstruction && <p style={{ marginBottom: '8px', fontStyle: 'italic', color: '#4b5563', fontSize: '13px' }}>{firstB.subInstruction}</p>}
@@ -945,49 +955,66 @@ export default function ListeningExamPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NoteCompletionRow — Professional DASH-FREE Style
-// Removes redundant [N] from text and strips all underscores
+// NoteCompletionRow — IELTS Inline Style
+// Splits at ________ and places [N] + input INLINE in the sentence
+// e.g. "beach does not have [1][input] on it"
 // ─────────────────────────────────────────────────────────────────────────────
 function NoteCompletionRow({ q, answers, handleAnswer }) {
-    // 1. Aggressive Clean: Remove underscores, {blank}, and redundant [number] from text
     const rawText = q.questionText || '';
-    const cleanText = rawText
-        .replace(/_{1,}/g, '')            // Remove all underscores
-        .replace(/\{blank\}/g, '')        // Remove {blank} markers
-        .replace(/\[\d+\]/g, '')          // Remove [15], [16] patterns from text
-        .trim();
 
-    // The [N] number box + Input field component
-    const InputWithNumber = (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', verticalAlign: 'middle', marginLeft: '6px' }}>
+    // Normalize: replace {blank} with ________ so both formats work
+    const normalizedText = rawText.replace(/\{blank\}/g, '________');
+
+    // Remove redundant [N] patterns embedded in questionText
+    const cleanedText = normalizedText.replace(/\[\d+\]/g, '').trim();
+
+    // The inline [N] number box + Input field
+    const InlineInput = (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', verticalAlign: 'middle', margin: '0 4px' }}>
             <span style={{
-                border: '1px solid #374151', fontWeight: 'bold', fontSize: '12px',
-                padding: '0 6px', color: '#111827', background: 'white',
-                lineHeight: '1.8', flexShrink: 0, borderRadius: '2px'
+                border: '1px solid #374151', fontWeight: 'bold', fontSize: '11px',
+                minWidth: '20px', height: '20px', display: 'inline-flex', alignItems: 'center',
+                justifyContent: 'center', color: '#111827', background: '#f3f4f6',
+                flexShrink: 0, borderRadius: '2px', padding: '0 4px'
             }}>{q.displayNumber}</span>
             <input
                 type="text"
                 value={answers[q.displayNumber] || ''}
                 onChange={e => handleAnswer(q.displayNumber, e.target.value)}
                 style={{
-                    border: '1px solid #d1d5db', width: '170px',
-                    fontSize: '14px', outline: 'none', background: '#fff',
-                    color: '#111827', padding: '4px 10px', borderRadius: '2px'
+                    border: '1px solid #d1d5db', borderBottom: '2px solid #6b7280',
+                    width: '130px', fontSize: '14px', outline: 'none',
+                    background: '#fff', color: '#111827',
+                    padding: '2px 8px', borderRadius: '2px'
                 }}
             />
         </span>
     );
 
+    // Split at ________ (3+ underscores) → place input inline inside sentence
+    const blankPattern = /_{3,}/;
+    const parts = cleanedText.split(blankPattern);
+
+    if (parts.length >= 2) {
+        // INLINE format: "text before" [N][input] "text after"
+        return (
+            <li id={`q-${q.displayNumber}`}
+                style={{ marginBottom: '3px', fontSize: '14px', color: '#111827', lineHeight: '1.7' }}>
+                <span style={{ verticalAlign: 'middle' }}>{parts[0].trimEnd()}</span>
+                {InlineInput}
+                {parts[1].trimStart() && (
+                    <span style={{ verticalAlign: 'middle' }}>{parts[1].trimStart()}</span>
+                )}
+            </li>
+        );
+    }
+
+    // Fallback: no blank found — append input at end
     return (
         <li id={`q-${q.displayNumber}`}
-            style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '10px', fontSize: '15px', color: '#111827', lineHeight: '1.6' }}>
-            {/* Bullet Point */}
-            <span style={{ flexShrink: 0, marginTop: '3px' }}>•</span>
-
-            <div style={{ flex: 1 }}>
-                <span style={{ verticalAlign: 'middle' }}>{cleanText}</span>
-                {InputWithNumber}
-            </div>
+            style={{ marginBottom: '7px', fontSize: '14px', color: '#111827', lineHeight: '1.8' }}>
+            <span style={{ verticalAlign: 'middle' }}>{cleanedText}</span>
+            {InlineInput}
         </li>
     );
 }
