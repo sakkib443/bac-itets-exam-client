@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -11,7 +11,9 @@ import {
     FaTimes,
     FaSpinner,
     FaPlay,
-    FaArrowRight
+    FaArrowRight,
+    FaArrowLeft,
+    FaVolumeUp
 } from "react-icons/fa";
 import { readingAPI, studentsAPI } from "@/lib/api";
 import ExamSecurity from "@/components/ExamSecurity";
@@ -29,6 +31,21 @@ export default function ReadingExamPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showInstructions, setShowInstructions] = useState(true);
     const [fontSize, setFontSize] = useState(16);
+
+    // Options menu states
+    const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+    const [optionsView, setOptionsView] = useState('main');
+    const [contrastMode, setContrastMode] = useState('black-on-white');
+    const [textSizeMode, setTextSizeMode] = useState('regular');
+
+    const contrastStyles = {
+        'black-on-white': { bg: '#fff', text: '#000', partBg: '#f0ece4', partBorder: '#d6d0c4' },
+        'white-on-black': { bg: '#000', text: '#fff', partBg: '#000', partBorder: '#555' },
+        'yellow-on-black': { bg: '#000', text: '#ffff00', partBg: '#000', partBorder: '#555' }
+    };
+    const textSizeScale = { 'regular': 1, 'large': 1.2, 'extra-large': 1.45 };
+    const cs = contrastStyles[contrastMode];
+    const tScale = textSizeScale[textSizeMode];
 
 
     // Data loading states
@@ -479,10 +496,10 @@ export default function ReadingExamPage() {
                     <div className="bg-blue-50 border border-blue-200 rounded p-4 mb-6">
                         <h3 className="font-semibold text-blue-800 mb-2">Question Types:</h3>
                         <ul className="text-blue-700 text-sm space-y-1">
-                            <li>• True/False/Not Given</li>
-                            <li>• Multiple Choice</li>
-                            <li>• Sentence Completion</li>
-                            <li>• Matching</li>
+                            <li>â€¢ True/False/Not Given</li>
+                            <li>â€¢ Multiple Choice</li>
+                            <li>â€¢ Sentence Completion</li>
+                            <li>â€¢ Matching</li>
                         </ul>
                     </div>
 
@@ -500,757 +517,583 @@ export default function ReadingExamPage() {
     }
 
     return (
-        <div className="min-h-screen bg-white">
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'Arial, sans-serif', backgroundColor: cs.bg, color: cs.text }}>
 
-            {/* Exam Security - Tab Switch & Fullscreen Detection */}
+            {/* Exam Security */}
             {!showInstructions && (
                 <ExamSecurity
                     examId={session?.examId}
-                    onViolationLimit={() => {
-                        handleSubmit();
-                    }}
+                    onViolationLimit={() => { handleSubmit(); }}
                 />
             )}
 
-            {/* Header */}
-            <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-                <div className="w-full px-6 py-2">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <span className="text-blue-600 font-bold text-xl">IELTS</span>
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <FaBook className="text-blue-600" />
-                                <span>Reading Test - Set #{questionSet?.setNumber}</span>
-                            </div>
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                TOP HEADER â€” Inspera IELTS Clone
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            <header style={{ backgroundColor: cs.bg, borderBottom: `1px solid ${contrastMode === 'black-on-white' ? '#ccc' : '#555'}`, height: '44px', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%', padding: '0 16px' }}>
+                    {/* Left */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <span style={{ fontWeight: '900', color: '#cc0000', fontSize: '22px', fontStyle: 'italic', letterSpacing: '-0.5px', fontFamily: 'Arial, sans-serif' }}>IELTS</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
+                            <span style={{ fontSize: '13px', fontWeight: '600', color: cs.text }}>Test taker ID</span>
+                            <span style={{ fontSize: '11px', color: contrastMode === 'black-on-white' ? '#6b7280' : cs.text }}>Reading Test</span>
                         </div>
-
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-1">
-                                {passages.map((p, idx) => (
-                                    <button
-                                        key={p.id}
-                                        onClick={() => { setCurrentPassage(idx); setCurrentQuestion(0); }}
-                                        className={`px-3 py-1 rounded text-sm font-medium cursor-pointer ${currentPassage === idx ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                                            }`}
-                                    >
-                                        P{idx + 1}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <div className={`flex items-center gap-2 px-3 py-1 rounded ${timeLeft < 300 ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-700"}`}>
-                                <FaClock />
-                                <span className="font-mono font-semibold">{formatTime(timeLeft)}</span>
-                            </div>
-                        </div>
+                    </div>
+                    {/* Right */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '600', color: timeLeft < 300 ? '#dc2626' : (contrastMode === 'black-on-white' ? '#6b7280' : cs.text), fontVariantNumeric: 'tabular-nums' }}>
+                            {formatTime(timeLeft)}
+                        </span>
+                        {/* WiFi */}
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={contrastMode === 'black-on-white' ? '#374151' : cs.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M5 12.55a11 11 0 0 1 14.08 0" /><path d="M1.42 9a16 16 0 0 1 21.16 0" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" />
+                        </svg>
+                        {/* Bell */}
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={contrastMode === 'black-on-white' ? '#374151' : cs.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                        </svg>
+                        {/* Hamburger â†’ Options */}
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={contrastMode === 'black-on-white' ? '#374151' : cs.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: 'pointer' }} onClick={() => { setShowOptionsMenu(true); setOptionsView('main'); }}>
+                            <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+                        </svg>
                     </div>
                 </div>
             </header>
 
-            {/* Main Content */}
-            <div className="w-full px-6 py-4 pb-16">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Passage Panel */}
-                    <div className="bg-white border border-gray-200 rounded overflow-hidden">
-                        <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
-                            <h3 className="font-semibold text-gray-800">{currentPass.title}</h3>
-                            {currentPass.source && (
-                                <p className="text-xs text-gray-500">{currentPass.source}</p>
-                            )}
-                        </div>
-                        <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)]" style={{ fontSize: `${fontSize}px` }}>
-                            <TextHighlighter passageId={`reading_passage_${currentPassage}`}>
-                                {currentPass.content.split('\n\n').map((para, index) => (
-                                    <p key={index} className="text-gray-700 leading-relaxed mb-4">{para}</p>
-                                ))}
-                            </TextHighlighter>
-                        </div>
-                    </div>
-
-                    {/* Question Panel */}
-                    <div className="space-y-4">
-                        <div className="bg-blue-50 border border-blue-100 rounded px-4 py-3">
-                            <h3 className="font-semibold text-gray-800">Questions {passages.slice(0, currentPassage).reduce((acc, p) => acc + p.questions.length, 0) + 1}–{passages.slice(0, currentPassage + 1).reduce((acc, p) => acc + p.questions.length, 0)}</h3>
-                        </div>
-
-                        {/* Question */}
-                        {/* Questions List - Using questionGroups if available */}
-                        <div className="space-y-6 max-h-[calc(100vh-250px)] overflow-y-auto pr-2">
-                            <TextHighlighter passageId={`reading_questions_${currentPassage}`}>
-                                {currentPass.questionGroups && currentPass.questionGroups.length > 0 ? (
-                                    // New format using questionGroups
-                                    currentPass.questionGroups.map((group, gIdx) => (
-                                        <div key={gIdx} className="mb-8">
-                                            {/* Note Completion Format (Matches User's Image) */}
-                                            {(group.questionType === "note-completion" || group.groupType === "note-completion") && (
-                                                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm mb-6">
-                                                    {/* Range and Instructions */}
-                                                    <div className="mb-4">
-                                                        <h3 className="text-lg font-bold text-gray-900 mb-1">
-                                                            Questions {group.startQuestion}-{group.endQuestion}
-                                                        </h3>
-                                                        <p className="text-gray-800 font-medium mb-1">{group.instructions || group.mainInstruction}</p>
-                                                        <p className="text-gray-700 text-sm italic">
-                                                            Choose <span className="font-bold">ONE WORD ONLY</span> from the passage for each answer.
-                                                        </p>
-                                                    </div>
-
-                                                    {/* Main Heading from data */}
-                                                    {group.mainHeading && (
-                                                        <h3 className="text-xl font-bold text-blue-900 mb-4 border-b-2 border-blue-100 pb-2">
-                                                            {group.mainHeading}
-                                                        </h3>
-                                                    )}
-
-                                                    {/* Render passage with headings and bullets */}
-                                                    {(group.passage || "").split('\n').map((line, lineIdx) => {
-                                                        const trimmedLine = line.trim();
-                                                        if (!trimmedLine) return <div key={lineIdx} className="h-3" />;
-
-                                                        // Identify Heading (No bullet, no blank, short)
-                                                        const isBullet = trimmedLine.startsWith('•') || trimmedLine.startsWith('-');
-                                                        const hasBlank = trimmedLine.includes('__________');
-                                                        const isHeading = !isBullet && !hasBlank && trimmedLine.length < 100;
-
-                                                        const renderLine = (text) => {
-                                                            const parts = text.split(/(\d+\s*__________)/g);
-                                                            return parts.map((part, pIdx) => {
-                                                                const match = part.match(/(\d+)\s*__________/);
-                                                                if (match) {
-                                                                    const qNum = parseInt(match[1]);
-                                                                    return (
-                                                                        <span key={pIdx} id={`q-${qNum}`} className="inline-flex items-center gap-1 mx-1 align-baseline">
-                                                                            <span className="bg-white border border-gray-400 text-gray-800 text-xs font-bold px-1.5 py-0.5 rounded shadow-sm">
-                                                                                {qNum}
-                                                                            </span>
-                                                                            <input
-                                                                                type="text"
-                                                                                value={answers[qNum] || ""}
-                                                                                onChange={(e) => handleAnswer(qNum, e.target.value)}
-                                                                                className="border border-gray-300 rounded px-2 py-1 bg-white w-32 h-8 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none transition-all shadow-sm"
-                                                                            />
-                                                                        </span>
-                                                                    );
-                                                                }
-                                                                return <span key={pIdx}>{part}</span>;
-                                                            });
-                                                        };
-
-                                                        if (isHeading) {
-                                                            return (
-                                                                <h4 key={lineIdx} className="font-extrabold text-gray-900 text-base mt-5 mb-2 uppercase tracking-wide">
-                                                                    {trimmedLine}
-                                                                </h4>
-                                                            );
-                                                        }
-
-                                                        if (isBullet) {
-                                                            const bulletText = trimmedLine.replace(/^[•\-]\s*/, '');
-                                                            return (
-                                                                <div key={lineIdx} className="flex items-start gap-3 ml-6 mb-2">
-                                                                    <span className="text-gray-400 mt-1.5 text-xs">•</span>
-                                                                    <span className="flex-1 text-gray-700 leading-relaxed font-medium">
-                                                                        {renderLine(bulletText)}
-                                                                    </span>
-                                                                </div>
-                                                            );
-                                                        }
-
-                                                        return (
-                                                            <p key={lineIdx} className="text-gray-700 leading-relaxed mb-2 ml-2">
-                                                                {renderLine(trimmedLine)}
-                                                            </p>
-                                                        );
-                                                    })}
-
-                                                    {/* Original format support for notesSections */}
-                                                    {!group.passage && group.notesSections?.map((section, sIdx) => (
-                                                        <div key={sIdx} className="mt-3">
-                                                            <h4 className="font-bold text-gray-800 mb-2">{section.subHeading}</h4>
-                                                            <ul className="space-y-2 pl-4">
-                                                                {section.bullets?.map((bullet, bIdx) => (
-                                                                    <li key={bIdx} className="flex items-start gap-2 text-gray-700">
-                                                                        <span className="mt-0.5">•</span>
-                                                                        {bullet.type === "context" ? (
-                                                                            <span>{bullet.text}</span>
-                                                                        ) : (
-                                                                            <div id={`q-${bullet.questionNumber}`} className="flex items-center flex-wrap gap-1">
-                                                                                <span>{bullet.textBefore}</span>
-                                                                                <span className="inline-flex items-center gap-1">
-                                                                                    <span className="border border-gray-400 text-gray-700 text-sm font-bold px-1.5 py-0.5">{bullet.questionNumber}</span>
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        value={answers[bullet.questionNumber] || ""}
-                                                                                        onChange={(e) => handleAnswer(bullet.questionNumber, e.target.value)}
-                                                                                        className="border border-gray-300 rounded px-2 py-1 bg-white w-32 h-8 focus:border-blue-500 outline-none"
-                                                                                    />
-                                                                                </span>
-                                                                                {bullet.textAfter && <span>{bullet.textAfter}</span>}
-                                                                            </div>
-                                                                        )}
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {/* TRUE/FALSE/NOT GIVEN Format (Matches User's Image) */}
-                                            {(group.questionType === "true-false-not-given" || group.groupType === "true-false-not-given" || group.questionType === "true-false-ng") && (
-                                                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm mb-6">
-                                                    <div className="mb-4">
-                                                        <h3 className="text-lg font-bold text-gray-900 mb-1">
-                                                            Questions {group.startQuestion}-{group.endQuestion}
-                                                        </h3>
-                                                        <p className="text-gray-800 font-medium mb-3">{group.instructions || group.mainInstruction}</p>
-
-                                                        <div className="bg-gray-50 p-4 rounded-md space-y-2 text-sm border-l-4 border-gray-300">
-                                                            <p><span className="font-bold w-24 inline-block">TRUE</span> if the statement agrees with the information</p>
-                                                            <p><span className="font-bold w-24 inline-block">FALSE</span> if the statement contradicts the information</p>
-                                                            <p><span className="font-bold w-24 inline-block">NOT GIVEN</span> if there is no information on this</p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="space-y-6 mt-6">
-                                                        {(group.statements || group.questions)?.map((stmt) => (
-                                                            <div key={stmt.questionNumber} id={`q-${stmt.questionNumber}`} className="pb-4 border-b border-gray-100 last:border-0">
-                                                                <div className="flex items-start gap-3 mb-4">
-                                                                    <span className="bg-gray-100 border border-gray-300 text-gray-800 text-sm font-bold px-2 py-0.5 rounded shadow-sm">
-                                                                        {stmt.questionNumber}
-                                                                    </span>
-                                                                    <p className="text-gray-800 font-medium leading-relaxed">{stmt.text || stmt.questionText}</p>
-                                                                </div>
-
-                                                                <div className="space-y-3 pl-10 mt-2">
-                                                                    {[
-                                                                        { letter: "A", value: "TRUE" },
-                                                                        { letter: "B", value: "FALSE" },
-                                                                        { letter: "C", value: "NOT GIVEN" }
-                                                                    ].map((opt) => (
-                                                                        <label
-                                                                            key={opt.value}
-                                                                            className="flex items-center gap-3 cursor-pointer group"
-                                                                            onClick={() => handleAnswer(stmt.questionNumber, opt.value)}
-                                                                        >
-                                                                            <span className="font-bold text-gray-800 text-sm min-w-[16px]">{opt.letter}</span>
-                                                                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${answers[stmt.questionNumber] === opt.value ? "border-blue-600" : "border-gray-400 group-hover:border-blue-400"}`}>
-                                                                                {answers[stmt.questionNumber] === opt.value && <div className="w-2 h-2 bg-blue-600 rounded-full" />}
-                                                                            </div>
-                                                                            <span className={`text-sm font-semibold uppercase tracking-wide ${answers[stmt.questionNumber] === opt.value ? "text-blue-700" : "text-gray-700"}`}>{opt.value}</span>
-                                                                        </label>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* MATCHING INFORMATION / MATCHING FEATURES / MATCHING HEADINGS Format */}
-                                            {(group.groupType === "matching-information" || group.groupType === "matching-features" || group.groupType === "matching-headings") && (
-                                                <div className="space-y-3">
-                                                    {/* Main Instruction */}
-                                                    <p className="text-gray-800">{group.mainInstruction}</p>
-
-                                                    {/* Sub Instruction */}
-                                                    <p className="text-gray-800">{group.subInstruction}</p>
-
-                                                    {/* NB Note */}
-                                                    {group.note && (
-                                                        <p className="text-gray-700 text-sm">
-                                                            <span className="font-bold">NB</span> <em>{group.note.replace('NB ', '')}</em>
-                                                        </p>
-                                                    )}
-
-                                                    {/* Feature Options List (for matching-features) */}
-                                                    {group.featureOptions?.length > 0 && (
-                                                        <div className="mt-4 mb-4 space-y-1">
-                                                            <p className="font-bold text-gray-900">{group.featureListTitle || "List of options"}</p>
-                                                            {group.featureOptions.map((opt) => (
-                                                                <div key={opt.letter} className="flex items-center gap-3 pl-2">
-                                                                    <span className="font-bold text-gray-800 min-w-[20px]">{opt.letter}</span>
-                                                                    <span className="text-gray-800">{opt.text}</span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-
-                                                    {/* Matching Items */}
-                                                    <div className="space-y-3 mt-4">
-                                                        {group.matchingItems?.map((item) => (
-                                                            <div key={item.questionNumber} id={`q-${item.questionNumber}`} className="flex items-center gap-3">
-                                                                <span className="border border-gray-400 text-gray-700 text-sm font-bold px-1.5 py-0.5 flex-shrink-0">
-                                                                    {item.questionNumber}
-                                                                </span>
-                                                                <span className="flex-1 text-gray-800">{item.text}</span>
-                                                                <select
-                                                                    value={answers[item.questionNumber] || ""}
-                                                                    onChange={(e) => handleAnswer(item.questionNumber, e.target.value)}
-                                                                    className="border border-gray-300 rounded px-3 py-1.5 text-gray-700 focus:border-blue-500 focus:outline-none min-w-[80px]"
-                                                                >
-                                                                    <option value="">--</option>
-                                                                    {group.paragraphOptions?.map((opt) => (
-                                                                        <option key={opt} value={opt}>{opt}</option>
-                                                                    ))}
-                                                                </select>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* SUMMARY COMPLETION Format */}
-                                            {group.groupType === "summary-completion" && (
-                                                <div className="space-y-3 mt-6 pt-4 border-t">
-                                                    {/* Main Instruction */}
-                                                    <p className="text-gray-800 italic">{group.mainInstruction}</p>
-
-                                                    {/* Sub Instruction */}
-                                                    <p className="text-gray-800">
-                                                        Choose <span className="font-bold">ONE WORD ONLY</span> from the passage for each answer.
-                                                    </p>
-
-                                                    {/* Main Heading */}
-                                                    <h3 className="text-lg font-bold text-gray-900 mt-4">{group.mainHeading}</h3>
-
-                                                    {/* Summary Paragraph with inline blanks */}
-                                                    <div className="text-gray-700 leading-relaxed">
-                                                        {group.summarySegments?.map((segment, sIdx) => (
-                                                            segment.type === "text" ? (
-                                                                <span key={sIdx}>{segment.content} </span>
-                                                            ) : (
-                                                                <span key={sIdx} id={`q-${segment.questionNumber}`} className="inline-flex items-center gap-1 mx-1">
-                                                                    <span className="border border-gray-400 text-gray-700 text-sm font-bold px-1.5 py-0.5">{segment.questionNumber}</span>
-                                                                    <input
-                                                                        type="text"
-                                                                        value={answers[segment.questionNumber] || ""}
-                                                                        onChange={(e) => handleAnswer(segment.questionNumber, e.target.value)}
-                                                                        className="border-b border-gray-400 bg-white w-32 px-2 py-1 focus:border-blue-600 focus:outline-none"
-                                                                    />
-                                                                </span>
-                                                            )
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* CHOOSE TWO LETTERS Format */}
-                                            {group.groupType === "choose-two-letters" && (
-                                                <div className="space-y-4 mt-6 pt-4 border-t">
-                                                    {/* Main Instruction */}
-                                                    <p className="text-gray-800 italic">{group.mainInstruction}</p>
-
-                                                    {/* Question Sets */}
-                                                    {group.questionSets?.map((qSet, qsIdx) => (
-                                                        <div key={qsIdx} className="mt-4">
-                                                            {/* Question Numbers and Text */}
-                                                            <div className="flex items-start gap-2 mb-3">
-                                                                <div className="flex gap-1">
-                                                                    {qSet.questionNumbers?.map((qNum) => (
-                                                                        <span key={qNum} id={`q-${qNum}`} className="border border-gray-400 text-gray-700 text-sm font-bold px-1.5 py-0.5">
-                                                                            {qNum}
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
-                                                                <p className="text-gray-800">
-                                                                    {qSet.questionText?.replace('TWO', '')}
-                                                                    <span className="font-bold">TWO</span>
-                                                                    {qSet.questionText?.split('TWO')[1]}
-                                                                </p>
-                                                            </div>
-
-                                                            {/* Options with Checkboxes */}
-                                                            <div className="space-y-2 ml-6">
-                                                                {qSet.options?.map((opt) => {
-                                                                    const isSelected = qSet.questionNumbers?.some(qNum => answers[qNum] === opt.letter);
-                                                                    return (
-                                                                        <label
-                                                                            key={opt.letter}
-                                                                            onClick={() => {
-                                                                                // Find which question number doesn't have this answer yet
-                                                                                const firstEmpty = qSet.questionNumbers?.find(qNum => !answers[qNum] || answers[qNum] === opt.letter);
-                                                                                if (firstEmpty) {
-                                                                                    if (answers[firstEmpty] === opt.letter) {
-                                                                                        handleAnswer(firstEmpty, ""); // Deselect
-                                                                                    } else {
-                                                                                        handleAnswer(firstEmpty, opt.letter);
-                                                                                    }
-                                                                                }
-                                                                            }}
-                                                                            className="flex items-center gap-2 cursor-pointer"
-                                                                        >
-                                                                            <span className="font-bold text-gray-700">{opt.letter}</span>
-                                                                            <div className={`w-4 h-4 border rounded flex items-center justify-center ${isSelected ? "bg-blue-600 border-blue-600" : "border-gray-400"}`}>
-                                                                                {isSelected && (
-                                                                                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                                                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                                                                    </svg>
-                                                                                )}
-                                                                            </div>
-                                                                            <span className="text-gray-700">{opt.text}</span>
-                                                                        </label>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {/* SUMMARY WITH OPTIONS (Phrase List) Format */}
-                                            {group.groupType === "summary-with-options" && (
-                                                <div className="space-y-3">
-                                                    {/* Main Instruction */}
-                                                    <p className="text-gray-800">{group.mainInstruction}</p>
-                                                    <p className="text-gray-800">{group.subInstruction}</p>
-
-                                                    {/* Phrase List - FIRST */}
-                                                    <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-3">
-                                                        {group.phraseList?.map((phrase) => (
-                                                            <div key={phrase.letter} className="text-gray-700">
-                                                                <span className="font-bold">{phrase.letter}</span> {phrase.text}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-
-                                                    {/* Main Heading */}
-                                                    <h3 className="text-lg font-bold text-gray-900 mt-4">{group.mainHeading}</h3>
-
-                                                    {/* Summary Paragraph with dropdowns */}
-                                                    <div className="text-gray-700 leading-relaxed">
-                                                        {group.summarySegments?.map((segment, sIdx) => (
-                                                            segment.type === "text" ? (
-                                                                <span key={sIdx}>{segment.content} </span>
-                                                            ) : (
-                                                                <span key={sIdx} id={`q-${segment.questionNumber}`} className="inline-flex items-center gap-1 mx-1">
-                                                                    <span className="border border-gray-400 text-gray-700 text-sm font-bold px-1.5 py-0.5">{segment.questionNumber}</span>
-                                                                    <select
-                                                                        value={answers[segment.questionNumber] || ""}
-                                                                        onChange={(e) => handleAnswer(segment.questionNumber, e.target.value)}
-                                                                        className="border border-gray-300 rounded px-2 py-1 text-gray-700 focus:border-blue-500 focus:outline-none"
-                                                                    >
-                                                                        <option value="">--</option>
-                                                                        {group.phraseList?.map((phrase) => (
-                                                                            <option key={phrase.letter} value={phrase.letter}>{phrase.letter}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                </span>
-                                                            )
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* YES/NO/NOT GIVEN Format */}
-                                            {group.groupType === "yes-no-not-given" && (
-                                                <div className="space-y-3 mt-6 pt-4 border-t">
-                                                    {/* Main Instruction */}
-                                                    <p className="text-gray-800">{group.mainInstruction}</p>
-                                                    <p className="text-gray-800">{group.subInstruction}</p>
-
-                                                    {/* Options Explanation */}
-                                                    <div className="space-y-1 pl-4 text-sm">
-                                                        {group.optionsExplanation?.map((opt) => (
-                                                            <div key={opt.label} className="text-gray-700">
-                                                                <span className="font-bold">{opt.label}</span> {opt.description}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-
-                                                    {/* Statements */}
-                                                    <div className="space-y-4 mt-3">
-                                                        {group.statements?.map((stmt) => (
-                                                            <div key={stmt.questionNumber} id={`q-${stmt.questionNumber}`} className="py-2">
-                                                                <div className="flex items-start gap-2 mb-2">
-                                                                    <span className="border border-gray-400 text-gray-700 text-sm font-bold px-1.5 py-0.5">{stmt.questionNumber}</span>
-                                                                    <span className="text-gray-800">{stmt.text}</span>
-                                                                </div>
-                                                                <div className="ml-8 space-y-1">
-                                                                    {["YES", "NO", "NOT GIVEN"].map((opt) => (
-                                                                        <label
-                                                                            key={opt}
-                                                                            onClick={() => handleAnswer(stmt.questionNumber, opt)}
-                                                                            className="flex items-center gap-2 cursor-pointer"
-                                                                        >
-                                                                            <span className="text-gray-500">•</span>
-                                                                            <div className={`w-4 h-4 border rounded flex items-center justify-center ${answers[stmt.questionNumber] === opt
-                                                                                ? "bg-blue-600 border-blue-600"
-                                                                                : "border-gray-400"
-                                                                                }`}>
-                                                                                {answers[stmt.questionNumber] === opt && (
-                                                                                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                                                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                                                                    </svg>
-                                                                                )}
-                                                                            </div>
-                                                                            <span className={`${answers[stmt.questionNumber] === opt ? "font-bold text-blue-600" : "text-gray-700"}`}>{opt}</span>
-                                                                        </label>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* MULTIPLE CHOICE FULL Format */}
-                                            {group.groupType === "multiple-choice-full" && (
-                                                <div className="space-y-3 mt-6 pt-4 border-t">
-                                                    {/* Main Instruction */}
-                                                    <p className="text-gray-800 italic">{group.mainInstruction}</p>
-                                                    <p className="text-gray-800">{group.subInstruction}</p>
-
-                                                    {/* Questions */}
-                                                    <div className="space-y-6 mt-4">
-                                                        {group.mcQuestions?.map((mcQ) => (
-                                                            <div key={mcQ.questionNumber} id={`q-${mcQ.questionNumber}`} className="py-2">
-                                                                <div className="flex items-start gap-2 mb-3">
-                                                                    <span className="border border-gray-400 text-gray-700 text-sm font-bold px-1.5 py-0.5">{mcQ.questionNumber}</span>
-                                                                    <span className="text-gray-800 font-medium">{mcQ.questionText}</span>
-                                                                </div>
-                                                                <div className="ml-8 space-y-2">
-                                                                    {mcQ.options?.map((opt) => (
-                                                                        <label
-                                                                            key={opt.letter}
-                                                                            onClick={() => handleAnswer(mcQ.questionNumber, opt.letter)}
-                                                                            className="flex items-start gap-2 cursor-pointer"
-                                                                        >
-                                                                            <span className="font-bold text-gray-700 mt-0.5">{opt.letter}</span>
-                                                                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${answers[mcQ.questionNumber] === opt.letter
-                                                                                ? "border-blue-600 bg-blue-600"
-                                                                                : "border-gray-400"
-                                                                                }`}>
-                                                                                {answers[mcQ.questionNumber] === opt.letter && (
-                                                                                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                                                                                )}
-                                                                            </div>
-                                                                            <span className={`${answers[mcQ.questionNumber] === opt.letter ? "text-blue-600" : "text-gray-700"}`}>
-                                                                                {opt.text}
-                                                                            </span>
-                                                                        </label>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* SHORT ANSWER Format */}
-                                            {(group.questionType === "short-answer" || group.groupType === "short-answer") && (
-                                                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm mb-6">
-                                                    {/* Range and Instructions */}
-                                                    <div className="mb-4">
-                                                        <h3 className="text-lg font-bold text-gray-900 mb-1">
-                                                            Questions {group.startQuestion}-{group.endQuestion}
-                                                        </h3>
-                                                        <p className="text-gray-800 font-medium mb-1">{group.mainInstruction}</p>
-                                                        {group.subInstruction && (
-                                                            <p className="text-gray-700 text-sm italic">{group.subInstruction}</p>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Statements with text input */}
-                                                    <div className="space-y-4 mt-3">
-                                                        {group.statements?.map((stmt) => (
-                                                            <div key={stmt.questionNumber} id={`q-${stmt.questionNumber}`} className="py-2">
-                                                                <div className="flex items-start gap-3">
-                                                                    <span className="border border-gray-400 text-gray-700 text-sm font-bold px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">{stmt.questionNumber}</span>
-                                                                    <div className="flex-1">
-                                                                        <span className="text-gray-800 block mb-2">{stmt.text}</span>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={answers[stmt.questionNumber] || ""}
-                                                                            onChange={(e) => handleAnswer(stmt.questionNumber, e.target.value)}
-                                                                            placeholder="Your answer..."
-                                                                            className="border border-gray-300 rounded px-3 py-2 bg-white w-full max-w-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none transition-all"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* SENTENCE COMPLETION Format */}
-                                            {(group.questionType === "sentence-completion" || group.groupType === "sentence-completion") && (
-                                                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm mb-6">
-                                                    {/* Range and Instructions */}
-                                                    <div className="mb-4">
-                                                        <h3 className="text-lg font-bold text-gray-900 mb-1">
-                                                            Questions {group.startQuestion}-{group.endQuestion}
-                                                        </h3>
-                                                        <p className="text-gray-800 font-medium mb-1">{group.mainInstruction}</p>
-                                                        {group.subInstruction && (
-                                                            <p className="text-gray-700 text-sm italic">{group.subInstruction}</p>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Statements with text input */}
-                                                    <div className="space-y-4 mt-3">
-                                                        {group.statements?.map((stmt) => (
-                                                            <div key={stmt.questionNumber} id={`q-${stmt.questionNumber}`} className="py-2">
-                                                                <div className="flex items-start gap-3">
-                                                                    <span className="border border-gray-400 text-gray-700 text-sm font-bold px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">{stmt.questionNumber}</span>
-                                                                    <div className="flex-1">
-                                                                        <p className="text-gray-800 mb-2">
-                                                                            {stmt.text?.split('_________').map((part, pIdx, arr) => (
-                                                                                <React.Fragment key={pIdx}>
-                                                                                    {part}
-                                                                                    {pIdx < arr.length - 1 && (
-                                                                                        <input
-                                                                                            type="text"
-                                                                                            value={answers[stmt.questionNumber] || ""}
-                                                                                            onChange={(e) => handleAnswer(stmt.questionNumber, e.target.value)}
-                                                                                            placeholder="..."
-                                                                                            className="border-b-2 border-gray-400 bg-transparent px-2 py-0.5 w-40 focus:border-blue-500 outline-none transition-all mx-1 inline-block"
-                                                                                        />
-                                                                                    )}
-                                                                                </React.Fragment>
-                                                                            ))}
-                                                                        </p>
-                                                                        {!stmt.text?.includes('_________') && (
-                                                                            <input
-                                                                                type="text"
-                                                                                value={answers[stmt.questionNumber] || ""}
-                                                                                onChange={(e) => handleAnswer(stmt.questionNumber, e.target.value)}
-                                                                                placeholder="Your answer..."
-                                                                                className="border border-gray-300 rounded px-3 py-2 bg-white w-full max-w-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none transition-all"
-                                                                            />
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))
-                                ) : null}
-
-
-                            </TextHighlighter>
-                        </div>
-
-
-
-                    </div>
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                PASSAGE BANNER â€” Inspera Style
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            <div style={{ backgroundColor: cs.partBg, borderBottom: `1px solid ${cs.partBorder}`, padding: '12px 40px', flexShrink: 0, fontFamily: 'Arial, sans-serif' }}>
+                <div style={{ fontWeight: 'bold', fontSize: `${15.5 * tScale}px`, color: cs.text, marginBottom: '2px' }}>
+                    Passage {currentPassage + 1}
+                </div>
+                <div style={{ fontSize: `${14 * tScale}px`, color: cs.text }}>
+                    {currentPass.title}
                 </div>
             </div>
 
-            {/* Fixed Question Navigator - Bottom Bar */}
-            <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-300 shadow-[0_-4px_12px_rgba(0,0,0,0.1)]">
-                <div className="flex items-center h-12">
-                    {/* Part Tabs */}
-                    {passages.map((p, pIdx) => (
-                        <button
-                            key={pIdx}
-                            onClick={() => { setCurrentPassage(pIdx); setCurrentQuestion(0); }}
-                            className={`flex-shrink-0 h-full px-4 text-xs font-bold cursor-pointer transition-colors border-r border-gray-200 ${currentPassage === pIdx
-                                ? "bg-blue-600 text-white"
-                                : "bg-gray-50 text-gray-500 hover:bg-gray-100"
-                                }`}
-                        >
-                            Part {pIdx + 1}
-                        </button>
-                    ))}
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                MAIN CONTENT â€” Two Column Layout
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            <div style={{ flex: 1, display: 'flex', overflow: 'hidden', paddingBottom: '50px' }}>
+                {/* LEFT: Passage Text */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 30px', borderRight: `1px solid ${contrastMode === 'black-on-white' ? '#d1d5db' : '#555'}`, backgroundColor: cs.bg, color: cs.text, fontSize: `${14 * tScale}px`, fontFamily: 'Arial, sans-serif' }}>
+                    <h3 style={{ fontWeight: 'bold', fontSize: `${18 * tScale}px`, color: cs.text, marginBottom: '16px' }}>{currentPass.title}</h3>
+                    {currentPass.source && <p style={{ fontSize: `${12 * tScale}px`, color: contrastMode === 'black-on-white' ? '#6b7280' : cs.text, marginBottom: '12px', fontStyle: 'italic' }}>{currentPass.source}</p>}
+                    <TextHighlighter passageId={`reading_passage_${currentPassage}`}>
+                        {currentPass.content.split('\n\n').map((para, index) => (
+                            <p key={index} style={{ color: cs.text, lineHeight: '1.8', marginBottom: '16px', fontSize: `${14 * tScale}px` }}>{para}</p>
+                        ))}
+                    </TextHighlighter>
+                </div>
 
-                    {/* Current Part Question Numbers */}
-                    <div className="flex items-center gap-1 px-3 overflow-x-auto flex-1">
-                        {currentPass.questions.map((q) => {
-                            const isAnswered = answers[q.questionNumber] && answers[q.questionNumber] !== "";
-                            const scrollToQ = () => {
-                                const element = document.getElementById(`q-${q.questionNumber}`);
-                                if (element) {
-                                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                }
-                            };
-                            return (
-                                <button
-                                    key={q.questionNumber}
-                                    onClick={scrollToQ}
-                                    title={`Question ${q.questionNumber}`}
-                                    className={`flex-shrink-0 w-8 h-8 rounded text-xs font-bold cursor-pointer transition-all ${isAnswered
-                                        ? "bg-green-600 text-white border border-green-700"
-                                        : "bg-white text-gray-700 border border-gray-300 hover:bg-blue-50 hover:border-blue-400"
-                                        }`}
-                                >
+                {/* RIGHT: Questions */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 30px', backgroundColor: cs.bg, color: cs.text, fontSize: `${14 * tScale}px`, fontFamily: 'Arial, sans-serif' }}>
+                    <TextHighlighter passageId={`reading_questions_${currentPassage}`}>
+                        {currentPass.questionGroups && currentPass.questionGroups.length > 0 ? (
+                            currentPass.questionGroups.map((group, gIdx) => (
+                                <div key={gIdx} style={{ marginBottom: '24px' }}>
+
+                                    {/* â”€â”€ NOTE COMPLETION â”€â”€ */}
+                                    {(group.questionType === "note-completion" || group.groupType === "note-completion") && (
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <div style={{ marginBottom: '12px' }}>
+                                                <p style={{ color: cs.text, fontWeight: '500', marginBottom: '4px', fontSize: `${14 * tScale}px` }}>{group.instructions || group.mainInstruction}</p>
+                                                <p style={{ color: cs.text, fontSize: `${13 * tScale}px`, fontStyle: 'italic' }}>
+                                                    Choose <b>ONE WORD ONLY</b> from the passage for each answer.
+                                                </p>
+                                            </div>
+
+                                            {group.mainHeading && <h3 style={{ fontWeight: 'bold', fontSize: `${17 * tScale}px`, color: cs.text, marginBottom: '12px', borderBottom: `2px solid ${contrastMode === 'black-on-white' ? '#dbeafe' : cs.text}`, paddingBottom: '6px' }}>{group.mainHeading}</h3>}
+
+                                            {(group.passage || "").split('\n').map((line, lineIdx) => {
+                                                const trimmedLine = line.trim();
+                                                if (!trimmedLine) return <div key={lineIdx} style={{ height: '8px' }} />;
+                                                const isBullet = trimmedLine.startsWith('â€¢') || trimmedLine.startsWith('-');
+                                                const hasBlank = trimmedLine.includes('__________');
+                                                const isHeading = !isBullet && !hasBlank && trimmedLine.length < 100;
+
+                                                const renderLine = (text) => {
+                                                    const parts = text.split(/(\d+\s*__________)/g);
+                                                    return parts.map((part, pIdx) => {
+                                                        const match = part.match(/(\d+)\s*__________/);
+                                                        if (match) {
+                                                            const qNum = parseInt(match[1]);
+                                                            const val = answers[qNum] || '';
+                                                            return (
+                                                                <span key={pIdx} id={`q-${qNum}`} style={{ display: 'inline-flex', alignItems: 'center', margin: '0 6px', verticalAlign: 'middle', position: 'relative', border: `1.5px solid ${cs.text}`, background: 'transparent', width: '190px', height: '32px', justifyContent: 'center' }}>
+                                                                    {!val && <span style={{ position: 'absolute', fontWeight: 'bold', fontSize: '15px', color: cs.text, pointerEvents: 'none', userSelect: 'none' }}>{qNum}</span>}
+                                                                    <input type="text" value={val} onChange={e => handleAnswer(qNum, e.target.value)} autoComplete="off" style={{ border: 'none', width: '100%', height: '100%', fontSize: '15px', outline: 'none', background: 'transparent', color: cs.text, padding: '0 8px', textAlign: 'center', fontFamily: 'Arial, sans-serif' }} />
+                                                                </span>
+                                                            );
+                                                        }
+                                                        return <span key={pIdx}>{part}</span>;
+                                                    });
+                                                };
+
+                                                if (isHeading) return <h4 key={lineIdx} style={{ fontWeight: 'bold', color: cs.text, fontSize: `${15 * tScale}px`, marginTop: '16px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{trimmedLine}</h4>;
+                                                if (isBullet) {
+                                                    const bulletText = trimmedLine.replace(/^[â€¢\-]\s*/, '');
+                                                    return <div key={lineIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginLeft: '20px', marginBottom: '4px' }}><span style={{ color: cs.text, marginTop: '4px', fontSize: '10px' }}>â€¢</span><span style={{ flex: 1, color: cs.text, lineHeight: '1.6', fontWeight: '500' }}>{renderLine(bulletText)}</span></div>;
+                                                }
+                                                return <p key={lineIdx} style={{ color: cs.text, lineHeight: '1.6', marginBottom: '4px', marginLeft: '8px' }}>{renderLine(trimmedLine)}</p>;
+                                            })}
+
+                                            {!group.passage && group.notesSections?.map((section, sIdx) => (
+                                                <div key={sIdx} style={{ marginTop: '12px' }}>
+                                                    <h4 style={{ fontWeight: 'bold', color: cs.text, marginBottom: '8px' }}>{section.subHeading}</h4>
+                                                    <div style={{ paddingLeft: '16px' }}>
+                                                        {section.bullets?.map((bullet, bIdx) => (
+                                                            <div key={bIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px', color: cs.text }}>
+                                                                <span style={{ marginTop: '4px' }}>â€¢</span>
+                                                                {bullet.type === "context" ? (
+                                                                    <span>{bullet.text}</span>
+                                                                ) : (
+                                                                    <div id={`q-${bullet.questionNumber}`} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                                                                        <span>{bullet.textBefore}</span>
+                                                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', position: 'relative', border: `1.5px solid ${cs.text}`, background: 'transparent', width: '190px', height: '32px' }}>
+                                                                            {!(answers[bullet.questionNumber]) && <span style={{ position: 'absolute', fontWeight: 'bold', fontSize: '15px', color: cs.text, pointerEvents: 'none' }}>{bullet.questionNumber}</span>}
+                                                                            <input type="text" value={answers[bullet.questionNumber] || ""} onChange={e => handleAnswer(bullet.questionNumber, e.target.value)} autoComplete="off" style={{ border: 'none', width: '100%', height: '100%', fontSize: '15px', outline: 'none', background: 'transparent', color: cs.text, padding: '0 8px', textAlign: 'center', fontFamily: 'Arial, sans-serif' }} />
+                                                                        </span>
+                                                                        {bullet.textAfter && <span>{bullet.textAfter}</span>}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* â”€â”€ TRUE/FALSE/NOT GIVEN â”€â”€ */}
+                                    {(group.questionType === "true-false-not-given" || group.groupType === "true-false-not-given" || group.questionType === "true-false-ng") && (
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <div style={{ marginBottom: '12px' }}>
+                                                <p style={{ color: cs.text, fontWeight: '500', marginBottom: '8px' }}>{group.instructions || group.mainInstruction}</p>
+                                                <div style={{ padding: '12px', borderLeft: `4px solid ${contrastMode === 'black-on-white' ? '#d1d5db' : cs.text}`, fontSize: `${13 * tScale}px` }}>
+                                                    <p><b>TRUE</b> if the statement agrees with the information</p>
+                                                    <p><b>FALSE</b> if the statement contradicts the information</p>
+                                                    <p><b>NOT GIVEN</b> if there is no information on this</p>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                {(group.statements || group.questions)?.map(stmt => (
+                                                    <div key={stmt.questionNumber} id={`q-${stmt.questionNumber}`} style={{ paddingBottom: '12px', borderBottom: `1px solid ${contrastMode === 'black-on-white' ? '#f3f4f6' : '#333'}` }}>
+                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
+                                                            <span style={{ border: `1px solid ${cs.text}`, fontWeight: 'bold', fontSize: '12px', padding: '0 6px', color: cs.text, background: cs.bg, lineHeight: '1.8', flexShrink: 0, borderRadius: '2px' }}>{stmt.questionNumber}</span>
+                                                            <p style={{ color: cs.text, fontWeight: '500', lineHeight: '1.5' }}>{stmt.text || stmt.questionText}</p>
+                                                        </div>
+                                                        <div style={{ paddingLeft: '34px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                            {["TRUE", "FALSE", "NOT GIVEN"].map((opt, oIdx) => {
+                                                                const letter = String.fromCharCode(65 + oIdx);
+                                                                const isSel = answers[stmt.questionNumber] === opt;
+                                                                return (
+                                                                    <div key={opt} onClick={() => handleAnswer(stmt.questionNumber, opt)} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                                                        <span style={{ fontWeight: 'bold', width: '16px', flexShrink: 0, fontSize: '14px', color: cs.text }}>{letter}</span>
+                                                                        <div style={{ width: '18px', height: '18px', border: `1px solid ${isSel ? '#1f2937' : '#d1d5db'}`, background: isSel ? '#1f2937' : 'transparent', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                                                                            {isSel && <div style={{ width: '6px', height: '6px', background: 'white', borderRadius: '50%' }} />}
+                                                                        </div>
+                                                                        <span style={{ color: cs.text, fontWeight: isSel ? '600' : '400', fontSize: '14px', textTransform: 'uppercase' }}>{opt}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* â”€â”€ MATCHING â”€â”€ */}
+                                    {(group.groupType === "matching-information" || group.groupType === "matching-features" || group.groupType === "matching-headings") && (
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <p style={{ color: cs.text, marginBottom: '4px' }}>{group.mainInstruction}</p>
+                                            <p style={{ color: cs.text, marginBottom: '8px' }}>{group.subInstruction}</p>
+                                            {group.note && <p style={{ color: cs.text, fontSize: `${13 * tScale}px` }}><b>NB</b> <em>{group.note.replace('NB ', '')}</em></p>}
+
+                                            {group.featureOptions?.length > 0 && (
+                                                <div style={{ marginTop: '12px', marginBottom: '12px' }}>
+                                                    <p style={{ fontWeight: 'bold', color: cs.text }}>{group.featureListTitle || "List of options"}</p>
+                                                    {group.featureOptions.map(opt => (
+                                                        <div key={opt.letter} style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '8px', color: cs.text }}>
+                                                            <span style={{ fontWeight: 'bold', minWidth: '20px' }}>{opt.letter}</span>
+                                                            <span>{opt.text}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+                                                {group.matchingItems?.map(item => (
+                                                    <div key={item.questionNumber} id={`q-${item.questionNumber}`} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <span style={{ border: `1px solid ${cs.text}`, fontWeight: 'bold', fontSize: '12px', padding: '0 6px', color: cs.text, background: cs.bg, lineHeight: '1.8', flexShrink: 0, borderRadius: '2px' }}>{item.questionNumber}</span>
+                                                        <span style={{ flex: 1, color: cs.text, fontSize: '15px' }}>{item.text}</span>
+                                                        <select value={answers[item.questionNumber] || ""} onChange={e => handleAnswer(item.questionNumber, e.target.value)} style={{ border: `1px solid ${cs.text}`, padding: '4px 8px', fontSize: '14px', background: cs.bg, color: cs.text, cursor: 'pointer', width: '70px', textAlign: 'center', borderRadius: '2px' }}>
+                                                            <option value="">--</option>
+                                                            {group.paragraphOptions?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                                        </select>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* â”€â”€ SUMMARY COMPLETION â”€â”€ */}
+                                    {group.groupType === "summary-completion" && (
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <p style={{ color: cs.text, fontStyle: 'italic', marginBottom: '4px' }}>{group.mainInstruction}</p>
+                                            <p style={{ color: cs.text, marginBottom: '8px' }}>Choose <b>ONE WORD ONLY</b> from the passage for each answer.</p>
+                                            <h3 style={{ fontWeight: 'bold', fontSize: `${17 * tScale}px`, color: cs.text, marginTop: '12px' }}>{group.mainHeading}</h3>
+                                            <div style={{ color: cs.text, lineHeight: '1.8', marginTop: '8px' }}>
+                                                {group.summarySegments?.map((segment, sIdx) => (
+                                                    segment.type === "text" ? <span key={sIdx}>{segment.content} </span> : (
+                                                        <span key={sIdx} id={`q-${segment.questionNumber}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: '0 6px', verticalAlign: 'middle', position: 'relative', border: `1.5px solid ${cs.text}`, background: 'transparent', width: '190px', height: '32px' }}>
+                                                            {!(answers[segment.questionNumber]) && <span style={{ position: 'absolute', fontWeight: 'bold', fontSize: '15px', color: cs.text, pointerEvents: 'none' }}>{segment.questionNumber}</span>}
+                                                            <input type="text" value={answers[segment.questionNumber] || ""} onChange={e => handleAnswer(segment.questionNumber, e.target.value)} autoComplete="off" style={{ border: 'none', width: '100%', height: '100%', fontSize: '15px', outline: 'none', background: 'transparent', color: cs.text, padding: '0 8px', textAlign: 'center', fontFamily: 'Arial, sans-serif' }} />
+                                                        </span>
+                                                    )
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* â”€â”€ CHOOSE TWO LETTERS â”€â”€ */}
+                                    {group.groupType === "choose-two-letters" && (
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <p style={{ color: cs.text, fontStyle: 'italic', marginBottom: '12px' }}>{group.mainInstruction}</p>
+                                            {group.questionSets?.map((qSet, qsIdx) => (
+                                                <div key={qsIdx} style={{ marginTop: '12px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                                                        {qSet.questionNumbers?.map(qNum => (
+                                                            <span key={qNum} id={`q-${qNum}`} style={{ border: `1px solid ${cs.text}`, fontWeight: 'bold', fontSize: '12px', padding: '0 6px', color: cs.text, background: cs.bg, lineHeight: '1.8', borderRadius: '2px' }}>{qNum}</span>
+                                                        ))}
+                                                        <span style={{ color: cs.text, fontSize: '15px' }}>{qSet.questionText}</span>
+                                                    </div>
+                                                    <div style={{ marginLeft: '24px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                        {qSet.options?.map(opt => {
+                                                            const isSel = qSet.questionNumbers?.some(qNum => answers[qNum] === opt.letter);
+                                                            return (
+                                                                <div key={opt.letter} onClick={() => { const emp = qSet.questionNumbers?.find(qNum => !answers[qNum] || answers[qNum] === opt.letter); if (emp) { answers[emp] === opt.letter ? handleAnswer(emp, "") : handleAnswer(emp, opt.letter); } }} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                                                    <span style={{ fontWeight: 'bold', color: cs.text, width: '16px' }}>{opt.letter}</span>
+                                                                    <div style={{ width: '18px', height: '18px', border: `1px solid ${isSel ? '#1f2937' : '#d1d5db'}`, background: isSel ? '#1f2937' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '3px' }}>
+                                                                        {isSel && <svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" stroke="white" strokeWidth="2" fill="none" /></svg>}
+                                                                    </div>
+                                                                    <span style={{ color: cs.text, fontWeight: isSel ? '600' : '400', fontSize: '14px' }}>{opt.text}</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* â”€â”€ SUMMARY WITH OPTIONS â”€â”€ */}
+                                    {group.groupType === "summary-with-options" && (
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <p style={{ color: cs.text, marginBottom: '4px' }}>{group.mainInstruction}</p>
+                                            <p style={{ color: cs.text, marginBottom: '8px' }}>{group.subInstruction}</p>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 32px', marginTop: '8px' }}>
+                                                {group.phraseList?.map(phrase => (
+                                                    <div key={phrase.letter} style={{ color: cs.text }}><b>{phrase.letter}</b> {phrase.text}</div>
+                                                ))}
+                                            </div>
+                                            <h3 style={{ fontWeight: 'bold', fontSize: `${17 * tScale}px`, color: cs.text, marginTop: '16px' }}>{group.mainHeading}</h3>
+                                            <div style={{ color: cs.text, lineHeight: '1.8', marginTop: '8px' }}>
+                                                {group.summarySegments?.map((segment, sIdx) => (
+                                                    segment.type === "text" ? <span key={sIdx}>{segment.content} </span> : (
+                                                        <span key={sIdx} id={`q-${segment.questionNumber}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', margin: '0 4px' }}>
+                                                            <select value={answers[segment.questionNumber] || ""} onChange={e => handleAnswer(segment.questionNumber, e.target.value)} style={{ border: `1px solid ${cs.text}`, padding: '4px 8px', fontSize: '14px', background: cs.bg, color: cs.text, cursor: 'pointer', width: '70px', textAlign: 'center', borderRadius: '2px' }}>
+                                                                <option value="">--</option>
+                                                                {group.phraseList?.map(phrase => <option key={phrase.letter} value={phrase.letter}>{phrase.letter}</option>)}
+                                                            </select>
+                                                        </span>
+                                                    )
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* â”€â”€ YES/NO/NOT GIVEN â”€â”€ */}
+                                    {group.groupType === "yes-no-not-given" && (
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <p style={{ color: cs.text, marginBottom: '4px' }}>{group.mainInstruction}</p>
+                                            <p style={{ color: cs.text, marginBottom: '8px' }}>{group.subInstruction}</p>
+                                            <div style={{ paddingLeft: '16px', fontSize: `${13 * tScale}px`, marginBottom: '12px' }}>
+                                                {group.optionsExplanation?.map(opt => (
+                                                    <div key={opt.label} style={{ color: cs.text }}><b>{opt.label}</b> {opt.description}</div>
+                                                ))}
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                {group.statements?.map(stmt => (
+                                                    <div key={stmt.questionNumber} id={`q-${stmt.questionNumber}`} style={{ paddingBottom: '8px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+                                                            <span style={{ border: `1px solid ${cs.text}`, fontWeight: 'bold', fontSize: '12px', padding: '0 6px', color: cs.text, background: cs.bg, lineHeight: '1.8', borderRadius: '2px' }}>{stmt.questionNumber}</span>
+                                                            <span style={{ color: cs.text }}>{stmt.text}</span>
+                                                        </div>
+                                                        <div style={{ marginLeft: '32px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            {["YES", "NO", "NOT GIVEN"].map((opt, oIdx) => {
+                                                                const letter = String.fromCharCode(65 + oIdx);
+                                                                const isSel = answers[stmt.questionNumber] === opt;
+                                                                return (
+                                                                    <div key={opt} onClick={() => handleAnswer(stmt.questionNumber, opt)} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                                                        <span style={{ fontWeight: 'bold', width: '16px', color: cs.text }}>{letter}</span>
+                                                                        <div style={{ width: '18px', height: '18px', border: `1px solid ${isSel ? '#1f2937' : '#d1d5db'}`, background: isSel ? '#1f2937' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                                                                            {isSel && <div style={{ width: '6px', height: '6px', background: 'white', borderRadius: '50%' }} />}
+                                                                        </div>
+                                                                        <span style={{ color: cs.text, fontWeight: isSel ? '600' : '400', fontSize: '14px' }}>{opt}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* â”€â”€ MULTIPLE CHOICE FULL â”€â”€ */}
+                                    {group.groupType === "multiple-choice-full" && (
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <p style={{ color: cs.text, fontStyle: 'italic', marginBottom: '4px' }}>{group.mainInstruction}</p>
+                                            <p style={{ color: cs.text, marginBottom: '12px' }}>{group.subInstruction}</p>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                {group.mcQuestions?.map(mcQ => (
+                                                    <div key={mcQ.questionNumber} id={`q-${mcQ.questionNumber}`}>
+                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+                                                            <span style={{ border: `1px solid ${cs.text}`, fontWeight: 'bold', fontSize: '12px', padding: '0 6px', color: cs.text, background: cs.bg, lineHeight: '1.8', borderRadius: '2px' }}>{mcQ.questionNumber}</span>
+                                                            <span style={{ color: cs.text, fontWeight: '500' }}>{mcQ.questionText}</span>
+                                                        </div>
+                                                        <div style={{ marginLeft: '32px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                            {mcQ.options?.map(opt => {
+                                                                const isSel = answers[mcQ.questionNumber] === opt.letter;
+                                                                return (
+                                                                    <div key={opt.letter} onClick={() => handleAnswer(mcQ.questionNumber, opt.letter)} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+                                                                        <span style={{ fontWeight: 'bold', width: '16px', color: cs.text, marginTop: '1px' }}>{opt.letter}</span>
+                                                                        <div style={{ width: '18px', height: '18px', border: `2px solid ${isSel ? '#1f2937' : '#d1d5db'}`, background: isSel ? '#1f2937' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', flexShrink: 0, marginTop: '1px' }}>
+                                                                            {isSel && <div style={{ width: '6px', height: '6px', background: 'white', borderRadius: '50%' }} />}
+                                                                        </div>
+                                                                        <span style={{ color: cs.text, fontWeight: isSel ? '600' : '400', fontSize: '14px' }}>{opt.text}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* â”€â”€ SHORT ANSWER â”€â”€ */}
+                                    {(group.questionType === "short-answer" || group.groupType === "short-answer") && (
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <p style={{ color: cs.text, fontWeight: '500', marginBottom: '4px' }}>{group.mainInstruction}</p>
+                                            {group.subInstruction && <p style={{ color: cs.text, fontSize: `${13 * tScale}px`, fontStyle: 'italic', marginBottom: '8px' }}>{group.subInstruction}</p>}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                {group.statements?.map(stmt => (
+                                                    <div key={stmt.questionNumber} id={`q-${stmt.questionNumber}`} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                                        <span style={{ color: cs.text, fontWeight: '500', flex: 1 }}>{stmt.text}</span>
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', position: 'relative', border: `1.5px solid ${cs.text}`, background: 'transparent', width: '190px', height: '32px', flexShrink: 0 }}>
+                                                            {!(answers[stmt.questionNumber]) && <span style={{ position: 'absolute', fontWeight: 'bold', fontSize: '15px', color: cs.text, pointerEvents: 'none' }}>{stmt.questionNumber}</span>}
+                                                            <input type="text" value={answers[stmt.questionNumber] || ""} onChange={e => handleAnswer(stmt.questionNumber, e.target.value)} autoComplete="off" style={{ border: 'none', width: '100%', height: '100%', fontSize: '15px', outline: 'none', background: 'transparent', color: cs.text, padding: '0 8px', textAlign: 'center', fontFamily: 'Arial, sans-serif' }} />
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* â”€â”€ SENTENCE COMPLETION â”€â”€ */}
+                                    {(group.questionType === "sentence-completion" || group.groupType === "sentence-completion") && (
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <p style={{ color: cs.text, fontWeight: '500', marginBottom: '4px' }}>{group.mainInstruction}</p>
+                                            {group.subInstruction && <p style={{ color: cs.text, fontSize: `${13 * tScale}px`, fontStyle: 'italic', marginBottom: '8px' }}>{group.subInstruction}</p>}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                {group.statements?.map(stmt => (
+                                                    <div key={stmt.questionNumber} id={`q-${stmt.questionNumber}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                        {stmt.text?.includes('_________') ? (
+                                                            stmt.text.split('_________').map((part, pIdx, arr) => (
+                                                                <React.Fragment key={pIdx}>
+                                                                    <span style={{ color: cs.text }}>{part}</span>
+                                                                    {pIdx < arr.length - 1 && (
+                                                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', position: 'relative', border: `1.5px solid ${cs.text}`, background: 'transparent', width: '190px', height: '32px' }}>
+                                                                            {!(answers[stmt.questionNumber]) && <span style={{ position: 'absolute', fontWeight: 'bold', fontSize: '15px', color: cs.text, pointerEvents: 'none' }}>{stmt.questionNumber}</span>}
+                                                                            <input type="text" value={answers[stmt.questionNumber] || ""} onChange={e => handleAnswer(stmt.questionNumber, e.target.value)} autoComplete="off" style={{ border: 'none', width: '100%', height: '100%', fontSize: '15px', outline: 'none', background: 'transparent', color: cs.text, padding: '0 8px', textAlign: 'center', fontFamily: 'Arial, sans-serif' }} />
+                                                                        </span>
+                                                                    )}
+                                                                </React.Fragment>
+                                                            ))
+                                                        ) : (
+                                                            <>
+                                                                <span style={{ color: cs.text, flex: 1 }}>{stmt.text}</span>
+                                                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', position: 'relative', border: `1.5px solid ${cs.text}`, background: 'transparent', width: '190px', height: '32px', flexShrink: 0 }}>
+                                                                    {!(answers[stmt.questionNumber]) && <span style={{ position: 'absolute', fontWeight: 'bold', fontSize: '15px', color: cs.text, pointerEvents: 'none' }}>{stmt.questionNumber}</span>}
+                                                                    <input type="text" value={answers[stmt.questionNumber] || ""} onChange={e => handleAnswer(stmt.questionNumber, e.target.value)} autoComplete="off" style={{ border: 'none', width: '100%', height: '100%', fontSize: '15px', outline: 'none', background: 'transparent', color: cs.text, padding: '0 8px', textAlign: 'center', fontFamily: 'Arial, sans-serif' }} />
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                </div>
+                            ))
+                        ) : null}
+                    </TextHighlighter>
+                </div>
+            </div>
+
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                FLOATING NAV ARROWS
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            <div style={{ position: 'fixed', bottom: '100px', right: '16px', display: 'flex', gap: '4px', zIndex: 99 }}>
+                <button onClick={goPrev} disabled={currentPassage === 0} style={{ width: '64px', height: '64px', cursor: currentPassage === 0 ? 'not-allowed' : 'pointer', background: currentPassage === 0 ? '#c8c8c8' : '#4a4a4a', color: 'white', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '3px' }}>
+                    <FaArrowLeft size={28} />
+                </button>
+                <button onClick={goNext} style={{ width: '64px', height: '64px', cursor: 'pointer', background: '#1a1a1a', color: 'white', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '3px' }}>
+                    <FaArrowRight size={28} />
+                </button>
+            </div>
+
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                BOTTOM NAV â€” Inspera Clone
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: cs.bg, borderTop: `1px solid ${contrastMode === 'black-on-white' ? '#d1d5db' : '#555'}`, display: 'flex', alignItems: 'center', height: '46px', padding: '0 12px', zIndex: 100 }}>
+                <span style={{ fontSize: '14px', fontWeight: 'bold', color: cs.text, marginRight: '12px', flexShrink: 0 }}>
+                    Passage {currentPassage + 1}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flex: 1 }}>
+                    {currentPass.questions.map(q => {
+                        const isAnswered = answers[q.questionNumber] && answers[q.questionNumber] !== '';
+                        return (
+                            <div key={q.questionNumber} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <div style={{ width: '22px', height: '3px', background: isAnswered ? '#2563eb' : 'transparent', marginBottom: '1px' }}></div>
+                                <button onClick={() => { const el = document.getElementById(`q-${q.questionNumber}`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} style={{ width: '22px', height: '22px', fontSize: '13px', fontWeight: '400', border: isAnswered ? '1px solid #2563eb' : '1px solid transparent', background: 'transparent', color: cs.text, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '2px', padding: 0 }}>
                                     {q.questionNumber}
                                 </button>
-                            );
-                        })}
-                    </div>
-
-                    {/* Answered count + Nav */}
-                    <div className="flex-shrink-0 flex items-center gap-2 px-3 border-l border-gray-200 h-full">
-                        <span className="text-[11px] text-gray-500 whitespace-nowrap">
-                            {currentPass.questions.filter(q => answers[q.questionNumber] && answers[q.questionNumber] !== "").length} of {currentPass.questions.length}
-                        </span>
-                        <button
-                            onClick={goPrev}
-                            disabled={currentPassage === 0}
-                            className={`w-7 h-7 rounded flex items-center justify-center cursor-pointer transition-all ${currentPassage === 0 ? "text-gray-300 cursor-not-allowed" : "text-blue-600 hover:bg-blue-100 border border-blue-200"}`}
-                        >
-                            <FaChevronLeft className="text-xs" />
-                        </button>
-                        <button
-                            onClick={goNext}
-                            className="w-7 h-7 rounded flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 cursor-pointer transition-all"
-                        >
-                            {currentPassage === passages.length - 1 ? <FaCheck className="text-xs" /> : <FaChevronRight className="text-xs" />}
-                        </button>
-                    </div>
+                            </div>
+                        );
+                    })}
                 </div>
+                <button onClick={() => setShowSubmitModal(true)} style={{ marginLeft: 'auto', width: '42px', height: '42px', cursor: 'pointer', background: '#e5e7eb', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderRadius: '3px' }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                </button>
             </div>
 
-            {/* Submit Modal */}
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                SUBMIT MODAL
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
             {showSubmitModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg p-6 max-w-md w-full">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-xl font-bold text-gray-800">Submit Reading Test?</h3>
-                            <button onClick={() => setShowSubmitModal(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                                <FaTimes />
-                            </button>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '16px' }}>
+                    <div style={{ background: 'white', padding: '24px', maxWidth: '360px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.25)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h3 style={{ fontWeight: 'bold', fontSize: '16px', color: '#1f2937' }}>Submit Reading Test?</h3>
+                            <button onClick={() => setShowSubmitModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#6b7280' }}><FaTimes /></button>
                         </div>
-
-                        <div className="bg-gray-50 rounded p-4 mb-4">
-                            <div className="flex justify-between mb-2">
-                                <span className="text-gray-600">Answered</span>
-                                <span className="font-semibold text-blue-600">{answeredCount} / {totalQuestions}</span>
-                            </div>
-                            <div className="w-full h-2 bg-gray-200 rounded overflow-hidden">
-                                <div className="h-full bg-blue-600" style={{ width: `${(answeredCount / totalQuestions) * 100}%` }}></div>
-                            </div>
+                        <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
+                            <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#1f2937' }}>{answeredCount}<span style={{ fontSize: '18px', color: '#9ca3af' }}>/{totalQuestions}</span></p>
+                            <p style={{ color: '#6b7280', fontSize: '13px', marginTop: '4px' }}>questions answered</p>
                         </div>
-
                         {totalQuestions - answeredCount > 0 && (
-                            <div className="bg-amber-50 border border-amber-200 rounded p-3 mb-4">
-                                <p className="text-amber-700 text-sm">{totalQuestions - answeredCount} questions unanswered!</p>
+                            <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', padding: '10px', marginBottom: '16px', textAlign: 'center' }}>
+                                <p style={{ color: '#92400e', fontSize: '13px', fontWeight: '600' }}>{totalQuestions - answeredCount} question{totalQuestions - answeredCount > 1 ? 's' : ''} unanswered</p>
                             </div>
                         )}
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowSubmitModal(false)}
-                                className="flex-1 py-2 border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
-                            >
-                                Review
-                            </button>
-                            <button
-                                onClick={handleSubmit}
-                                disabled={isSubmitting}
-                                className="flex-1 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 cursor-pointer disabled:opacity-70"
-                            >
-                                {isSubmitting ? "Submitting..." : "Submit"}
-                            </button>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button onClick={() => setShowSubmitModal(false)} style={{ flex: 1, padding: '10px', border: '1px solid #d1d5db', color: '#374151', fontWeight: '600', fontSize: '13px', cursor: 'pointer', background: 'white' }}>Review</button>
+                            <button onClick={handleSubmit} disabled={isSubmitting} style={{ flex: 1, padding: '10px', background: '#2563eb', color: 'white', border: 'none', fontWeight: '600', fontSize: '13px', cursor: 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>{isSubmitting ? 'Submitting...' : 'Submit'}</button>
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                OPTIONS MENU â€” Inspera Style
+            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            {showOptionsMenu && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 200, paddingTop: '60px' }}>
+                    <div style={{ background: 'white', maxWidth: '520px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', borderRadius: '4px', overflow: 'hidden' }}>
+
+                        {optionsView === 'main' && (
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
+                                    <div></div>
+                                    <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', fontFamily: 'Arial, sans-serif', margin: 0 }}>Options</h2>
+                                    <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}><FaTimes size={18} color="#000" /></button>
+                                </div>
+                                <div style={{ padding: '0 24px 20px' }}>
+                                    <button onClick={() => { setShowOptionsMenu(false); setShowSubmitModal(true); }} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#e41e2b', color: 'white', border: 'none', borderRadius: '6px', fontSize: '16px', fontWeight: '500', cursor: 'pointer', fontFamily: 'Arial, sans-serif' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+                                            <span>Go to submission page</span>
+                                        </div>
+                                        <span style={{ fontSize: '20px' }}>{'>'}</span>
+                                    </button>
+                                </div>
+                                <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 24px' }}></div>
+                                <button onClick={() => setOptionsView('contrast')} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="#666"><circle cx="12" cy="12" r="10" fill="none" stroke="#666" strokeWidth="2" /><path d="M12 2a10 10 0 0 1 0 20z" fill="#666" /></svg>
+                                        <span style={{ fontSize: '16px', color: '#000' }}>Contrast</span>
+                                    </div>
+                                    <span style={{ fontSize: '20px', color: '#666' }}>{'>'}</span>
+                                </button>
+                                <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 24px' }}></div>
+                                <button onClick={() => setOptionsView('textsize')} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="#666"><circle cx="11" cy="11" r="7" fill="none" stroke="#666" strokeWidth="2" /><line x1="16" y1="16" x2="21" y2="21" stroke="#666" strokeWidth="2" /><text x="8" y="14" fontSize="10" fill="#666" fontWeight="bold">A</text></svg>
+                                        <span style={{ fontSize: '16px', color: '#000' }}>Text size</span>
+                                    </div>
+                                    <span style={{ fontSize: '20px', color: '#666' }}>{'>'}</span>
+                                </button>
+                                <div style={{ height: '16px' }}></div>
+                            </div>
+                        )}
+
+                        {optionsView === 'contrast' && (
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
+                                    <button onClick={() => setOptionsView('main')} style={{ background: 'none', border: 'none', fontSize: '15px', cursor: 'pointer', color: '#000' }}>Options</button>
+                                    <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', margin: 0 }}>Contrast</h2>
+                                    <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#000', padding: '4px' }}>âœ•</button>
+                                </div>
+                                <div style={{ margin: '8px 24px 24px', border: '1px solid #d1d5db', borderRadius: '6px' }}>
+                                    {[{ key: 'black-on-white', label: 'Black on white' }, { key: 'white-on-black', label: 'White on black' }, { key: 'yellow-on-black', label: 'Yellow on black' }].map((opt, idx) => (
+                                        <button key={opt.key} onClick={() => setContrastMode(opt.key)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 20px', background: 'none', border: 'none', borderBottom: idx < 2 ? '1px solid #e5e7eb' : 'none', cursor: 'pointer' }}>
+                                            {contrastMode === opt.key ? <svg width="20" height="20" viewBox="0 0 24 24" fill="#333"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg> : <span style={{ width: '20px' }}></span>}
+                                            <span style={{ fontSize: '16px', color: '#000' }}>{opt.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {optionsView === 'textsize' && (
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
+                                    <button onClick={() => setOptionsView('main')} style={{ background: 'none', border: 'none', fontSize: '15px', cursor: 'pointer', color: '#000' }}>Options</button>
+                                    <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', margin: 0 }}>Text size</h2>
+                                    <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#000', padding: '4px' }}>âœ•</button>
+                                </div>
+                                <div style={{ margin: '8px 24px 24px', border: '1px solid #d1d5db', borderRadius: '6px' }}>
+                                    {[{ key: 'regular', label: 'Regular' }, { key: 'large', label: 'Large' }, { key: 'extra-large', label: 'Extra large' }].map((opt, idx) => (
+                                        <button key={opt.key} onClick={() => setTextSizeMode(opt.key)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 20px', background: 'none', border: 'none', borderBottom: idx < 2 ? '1px solid #e5e7eb' : 'none', cursor: 'pointer' }}>
+                                            {textSizeMode === opt.key ? <svg width="20" height="20" viewBox="0 0 24 24" fill="#333"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg> : <span style={{ width: '20px' }}></span>}
+                                            <span style={{ fontSize: '16px', color: '#000' }}>{opt.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }
