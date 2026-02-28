@@ -31,7 +31,7 @@ const InstructionWithPortals = React.memo(function InstructionWithPortals({ cont
         return (content || "").replace(
             /(?:<strong>\s*)?\[(\d+)\](?:\s*<\/strong>)?/g,
             (match, qNum) => {
-                return `<span class="embedded-q-wrapper" style="display: inline-flex; align-items: center; justify-content: center; margin: 0 6px; vertical-align: middle; position: relative; border: 1.5px solid currentColor; background: transparent; width: 190px; height: 32px;">` +
+                return `<span class="embedded-q-wrapper" style="display: inline-flex; align-items: center; justify-content: center; margin: 0 6px; vertical-align: middle; position: relative; border: 1.5px solid currentColor; background: transparent; width: 190px; height: 32px; border-radius: 4px;">` +
                     `<span class="embedded-q-num" data-for="${qNum}" style="position: absolute; font-weight: bold; font-size: 15px; color: inherit; pointer-events: none; user-select: none;">${qNum}</span>` +
                     `<input type="text" data-qnum="${qNum}" class="embedded-q-input" ` +
                     `style="border: none; width: 100%; height: 100%; font-size: 15px; outline: none; background: transparent; color: inherit; padding: 0 8px; text-align: center; font-family: Arial, sans-serif;" />` +
@@ -160,6 +160,7 @@ export default function ListeningExamPage() {
     const [soundTestPlaying, setSoundTestPlaying] = useState(false);
     const [soundTestResult, setSoundTestResult] = useState(null);    // null | 'ask' | 'yes' | 'no'
     const [currentPage, setCurrentPage] = useState(0); // page index (10 qs/page)
+    const [focusedQuestion, setFocusedQuestion] = useState(1); // currently focused question number
 
     // Options menu states
     const [showOptionsMenu, setShowOptionsMenu] = useState(false);
@@ -169,7 +170,7 @@ export default function ListeningExamPage() {
 
     // Contrast & text size derived styles
     const contrastStyles = {
-        'black-on-white': { bg: '#fff', text: '#000', partBg: '#f0ece4', partBorder: '#d6d0c4' },
+        'black-on-white': { bg: '#fff', text: '#000', partBg: '#F1F2EC', partBorder: '#d6d0c4' },
         'white-on-black': { bg: '#000', text: '#fff', partBg: '#000', partBorder: '#555' },
         'yellow-on-black': { bg: '#000', text: '#ffff00', partBg: '#000', partBorder: '#555' }
     };
@@ -368,6 +369,52 @@ export default function ListeningExamPage() {
         else { setShowSubmitModal(true); }
     };
     const goPrev = () => { if (currentPage > 0) goToPage(currentPage - 1); };
+
+    // Per-question navigation (arrow buttons)
+    const goNextQuestion = () => {
+        if (focusedQuestion < totalQuestions) {
+            const nextQ = focusedQuestion + 1;
+            setFocusedQuestion(nextQ);
+            const targetPage = Math.floor((nextQ - 1) / QUESTIONS_PER_PAGE);
+            if (targetPage !== currentPage) goToPage(targetPage);
+            setTimeout(() => {
+                const el = document.getElementById(`q-${nextQ}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    const input = el.querySelector('input');
+                    if (input) input.focus();
+                }
+                // Highlight question number box
+                const qnumEl = document.getElementById(`qnum-${nextQ}`);
+                if (qnumEl) { qnumEl.style.border = '2px solid #2563eb'; qnumEl.style.borderRadius = '4px'; }
+                // Remove highlight from previous
+                const prevQnum = document.getElementById(`qnum-${nextQ - 1}`);
+                if (prevQnum) { prevQnum.style.border = ''; prevQnum.style.borderRadius = ''; }
+            }, 150);
+        }
+    };
+    const goPrevQuestion = () => {
+        if (focusedQuestion > 1) {
+            const prevQ = focusedQuestion - 1;
+            setFocusedQuestion(prevQ);
+            const targetPage = Math.floor((prevQ - 1) / QUESTIONS_PER_PAGE);
+            if (targetPage !== currentPage) goToPage(targetPage);
+            setTimeout(() => {
+                const el = document.getElementById(`q-${prevQ}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    const input = el.querySelector('input');
+                    if (input) input.focus();
+                }
+                // Highlight question number box
+                const qnumEl = document.getElementById(`qnum-${prevQ}`);
+                if (qnumEl) { qnumEl.style.border = '2px solid #2563eb'; qnumEl.style.borderRadius = '4px'; }
+                // Remove highlight from next
+                const nextQnum = document.getElementById(`qnum-${prevQ + 1}`);
+                if (nextQnum) { nextQnum.style.border = ''; nextQnum.style.borderRadius = ''; }
+            }, 150);
+        }
+    };
 
     // ── Score & Submit ────────────────────────────────────────────────────
     const getBandScore = (raw) => {
@@ -823,39 +870,30 @@ export default function ListeningExamPage() {
             {/* ══════════════════════════════════════
                 TOP HEADER — Inspera IELTS Clone
             ══════════════════════════════════════ */}
-            <header style={{ backgroundColor: cs.bg, borderBottom: `1px solid ${contrastMode === 'black-on-white' ? '#ccc' : '#555'}`, height: '44px', flexShrink: 0 }}>
+            <header style={{ backgroundColor: cs.bg, borderBottom: `1px solid ${contrastMode === 'black-on-white' ? '#ccc' : '#555'}`, height: '56px', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%', padding: '0 16px' }}>
                     {/* Left: IELTS logo + Test taker ID + audio status */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <span style={{ fontWeight: '900', color: '#cc0000', fontSize: '22px', fontStyle: 'italic', letterSpacing: '-0.5px', fontFamily: 'Arial, sans-serif' }}>IELTS</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                        <span style={{ fontWeight: '900', color: '#cc0000', fontSize: '32px', letterSpacing: '-0.5px', fontFamily: 'Arial, sans-serif' }}>IELTS</span>
                         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
-                            <span style={{ fontSize: '13px', fontWeight: '600', color: cs.text }}>Test taker ID</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: contrastMode === 'black-on-white' ? '#6b7280' : cs.text }}>
-                                <FaVolumeUp size={10} style={{ color: isPlaying ? '#111' : '#9ca3af' }} />
-                                <span>{isPlaying ? 'Audio is playing' : 'Audio paused'}</span>
-                            </div>
+                            <span style={{ fontSize: '16px', fontWeight: '600', color: cs.text }}>Test taker ID</span>
                         </div>
                     </div>
                     {/* Right: WiFi + Bell + Menu icons */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-                        {/* Timer (small, subtle) */}
-                        <span style={{ fontSize: '12px', fontWeight: '600', color: timeLeft < 300 ? '#dc2626' : (contrastMode === 'black-on-white' ? '#6b7280' : cs.text), fontVariantNumeric: 'tabular-nums' }}>
-                            {formatTime(timeLeft)}
-                        </span>
-                        {/* WiFi icon */}
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={contrastMode === 'black-on-white' ? '#374151' : cs.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={contrastMode === 'black-on-white' ? '#374151' : cs.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M5 12.55a11 11 0 0 1 14.08 0" />
                             <path d="M1.42 9a16 16 0 0 1 21.16 0" />
                             <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
                             <line x1="12" y1="20" x2="12.01" y2="20" />
                         </svg>
                         {/* Bell icon */}
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={contrastMode === 'black-on-white' ? '#374151' : cs.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={contrastMode === 'black-on-white' ? '#374151' : cs.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                             <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                         </svg>
                         {/* Hamburger menu — opens Options panel */}
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={contrastMode === 'black-on-white' ? '#374151' : cs.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: 'pointer' }} onClick={() => { setShowOptionsMenu(true); setOptionsView('main'); }}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={contrastMode === 'black-on-white' ? '#374151' : cs.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: 'pointer' }} onClick={() => { setShowOptionsMenu(true); setOptionsView('main'); }}>
                             <line x1="3" y1="6" x2="21" y2="6" />
                             <line x1="3" y1="12" x2="21" y2="12" />
                             <line x1="3" y1="18" x2="21" y2="18" />
@@ -867,11 +905,12 @@ export default function ListeningExamPage() {
             {/* ══════════════════════════════════════
                 PART BANNER — Inspera Style
             ══════════════════════════════════════ */}
-            <div style={{ backgroundColor: cs.partBg, borderBottom: `1px solid ${cs.partBorder}`, padding: '12px 40px', flexShrink: 0, fontFamily: 'Arial, sans-serif' }}>
-                <div style={{ fontWeight: 'bold', fontSize: `${15.5 * tScale}px`, color: cs.text, marginBottom: '2px' }}>
+            < div style={{ margin: '26px 15px 0', backgroundColor: cs.partBg, border: `1px solid ${cs.partBorder}`, padding: '12px 24px', flexShrink: 0, fontFamily: 'Arial, sans-serif', borderRadius: '4px' }
+            }>
+                <div style={{ fontWeight: 'bold', fontSize: `${16 * tScale}px`, color: cs.text, marginBottom: '2px' }}>
                     Part {currentSectionIndex + 1}
                 </div>
-                <div style={{ fontSize: `${14 * tScale}px`, color: cs.text }}>
+                <div style={{ fontSize: `${16 * tScale}px`, color: cs.text }}>
                     {(() => {
                         const partQs = pageBlocks.filter(b => !b._isInstruction);
                         const first = partQs[0]?.displayNumber;
@@ -879,13 +918,13 @@ export default function ListeningExamPage() {
                         return (first && last ? `Listen and answer questions ${first}–${last}.` : '');
                     })()}
                 </div>
-            </div>
+            </div >
 
             {/* ══════════════════════════════════════
                 SCROLLABLE CONTENT
             ══════════════════════════════════════ */}
-            <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '70px', fontFamily: 'Arial, sans-serif', backgroundColor: cs.bg, color: cs.text, fontSize: `${14 * tScale}px` }}>
-                <div style={{ maxWidth: '1000px', padding: '20px 40px' }}>
+            < div style={{ flex: 1, overflowY: 'auto', paddingBottom: '70px', fontFamily: 'Arial, sans-serif', backgroundColor: cs.bg, color: cs.text, fontSize: `${16 * tScale}px` }}>
+                <div style={{ maxWidth: '1000px', padding: '20px 20px' }}>
 
                     {/* Section image if any */}
                     {currentSec.imageUrl && (
@@ -945,7 +984,7 @@ export default function ListeningExamPage() {
                                         {/* Question rows */}
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                             {blocks.map(q => (
-                                                <NoteCompletionRow key={q.displayNumber} q={q} answers={answers} handleAnswer={handleAnswer} textColor={cs.text} />
+                                                <NoteCompletionRow key={q.displayNumber} q={q} answers={answers} handleAnswer={handleAnswer} textColor={cs.text} isFocused={focusedQuestion === q.displayNumber} />
                                             ))}
                                         </div>
                                     </div>
@@ -982,7 +1021,7 @@ export default function ListeningExamPage() {
                                             {/* Number boxes [21] [22] + question text */}
                                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
                                                 {qNumbers.map(n => (
-                                                    <span key={n} style={{
+                                                    <span key={n} id={`qnum-${n}`} style={{
                                                         border: `1px solid ${cs.text}`, fontWeight: 'bold', fontSize: '12px',
                                                         padding: '0 6px', color: cs.text, background: cs.bg,
                                                         lineHeight: '1.8', flexShrink: 0, borderRadius: '2px', marginTop: '2px'
@@ -1029,7 +1068,7 @@ export default function ListeningExamPage() {
                                             <div key={qidx} style={{ marginBottom: '20px' }} id={`q-${q.displayNumber}`}>
                                                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
                                                     {/* [N] box */}
-                                                    <span style={{
+                                                    <span id={`qnum-${q.displayNumber}`} style={{
                                                         border: `1px solid ${cs.text}`, fontWeight: 'bold', fontSize: '12px',
                                                         padding: '0 6px', color: cs.text, background: cs.bg,
                                                         lineHeight: '1.8', flexShrink: 0, borderRadius: '2px', marginTop: '2px'
@@ -1093,7 +1132,7 @@ export default function ListeningExamPage() {
                                                 <div key={q.displayNumber} id={`q-${q.displayNumber}`}
                                                     style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                     {/* [N] box */}
-                                                    <span style={{
+                                                    <span id={`qnum-${q.displayNumber}`} style={{
                                                         border: `1px solid ${cs.text}`, fontWeight: 'bold', fontSize: '12px',
                                                         padding: '0 6px', color: cs.text, background: cs.bg,
                                                         lineHeight: '1.8', flexShrink: 0, borderRadius: '2px'
@@ -1128,7 +1167,7 @@ export default function ListeningExamPage() {
                                                 <div key={q.displayNumber} id={`q-${q.displayNumber}`}
                                                     style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                     {/* [N] box */}
-                                                    <span style={{
+                                                    <span id={`qnum-${q.displayNumber}`} style={{
                                                         border: `1px solid ${cs.text}`, fontWeight: 'bold', fontSize: '12px',
                                                         padding: '0 6px', color: cs.text, background: cs.bg,
                                                         lineHeight: '1.8', flexShrink: 0, borderRadius: '2px'
@@ -1162,26 +1201,26 @@ export default function ListeningExamPage() {
                 PAGE NAVIGATION ARROWS — floating in content area (Inspera style)
             ══════════════════════════════════════ */}
                 <div style={{
-                    position: 'fixed', bottom: '100px', right: '16px',
+                    position: 'fixed', bottom: '140px', right: '16px',
                     display: 'flex', gap: '4px', zIndex: 99
                 }}>
-                    <button onClick={goPrev} disabled={currentPage === 0}
+                    <button onClick={goPrevQuestion} disabled={focusedQuestion <= 1}
                         style={{
-                            width: '64px', height: '64px', cursor: currentPage === 0 ? 'not-allowed' : 'pointer',
-                            background: currentPage === 0 ? '#c8c8c8' : '#4a4a4a', color: 'white',
+                            width: '56px', height: '56px', cursor: focusedQuestion <= 1 ? 'not-allowed' : 'pointer',
+                            background: focusedQuestion <= 1 ? '#c8c8c8' : '#4a4a4a', color: 'white',
                             border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             borderRadius: '3px'
                         }}>
-                        <FaArrowLeft size={28} />
+                        <FaArrowLeft size={24} />
                     </button>
-                    <button onClick={goNext}
+                    <button onClick={goNextQuestion} disabled={focusedQuestion >= totalQuestions}
                         style={{
-                            width: '64px', height: '64px', cursor: 'pointer',
-                            background: '#1a1a1a', color: 'white',
+                            width: '56px', height: '56px', cursor: focusedQuestion >= totalQuestions ? 'not-allowed' : 'pointer',
+                            background: focusedQuestion >= totalQuestions ? '#c8c8c8' : '#1a1a1a', color: 'white',
                             border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             borderRadius: '3px'
                         }}>
-                        <FaArrowRight size={28} />
+                        <FaArrowRight size={24} />
                     </button>
                 </div>
 
@@ -1192,53 +1231,76 @@ export default function ListeningExamPage() {
                     position: 'fixed', bottom: 0, left: 0, right: 0,
                     background: cs.bg, borderTop: `1px solid ${contrastMode === 'black-on-white' ? '#d1d5db' : '#555'}`,
                     display: 'flex', alignItems: 'center',
-                    height: '46px', padding: '0 12px', zIndex: 100
+                    height: '52px', padding: '0 16px', zIndex: 100
                 }}>
-                    {/* Part label */}
-                    <span style={{ fontSize: '14px', fontWeight: 'bold', color: cs.text, marginRight: '12px', flexShrink: 0 }}>
-                        Part {currentSectionIndex + 1}
-                    </span>
+                    {/* All Parts with question numbers */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, overflowX: 'auto' }}>
+                        {sections.map((sec, sIdx) => {
+                            const isActivePart = sIdx === currentSectionIndex;
+                            const sectionQuestions = allRealQuestions.filter(q => q._sectionIndex === sIdx);
+                            const allSectionDone = sectionQuestions.length > 0 && sectionQuestions.every(q => answers[q.displayNumber] && answers[q.displayNumber] !== '');
 
-                    {/* Question number buttons */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flex: 1 }}>
-                        {allRealQuestions
-                            .filter(q => Math.floor((q.displayNumber - 1) / QUESTIONS_PER_PAGE) === currentPage)
-                            .map(q => {
-                                const isAnswered = answers[q.displayNumber] && answers[q.displayNumber] !== '';
-                                return (
-                                    <div key={q.displayNumber} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                        {/* Blue underline indicator for answered */}
-                                        <div style={{ width: '22px', height: '3px', background: isAnswered ? '#2563eb' : 'transparent', marginBottom: '1px' }}></div>
-                                        <button
-                                            onClick={() => {
-                                                const el = document.getElementById(`q-${q.displayNumber}`);
-                                                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                            }}
-                                            style={{
-                                                width: '22px', height: '22px', fontSize: '13px', fontWeight: '400',
-                                                border: isAnswered ? '1px solid #2563eb' : '1px solid transparent',
-                                                background: 'transparent',
-                                                color: cs.text,
-                                                cursor: 'pointer',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                borderRadius: '2px', padding: 0
-                                            }}>
-                                            {q.displayNumber}
-                                        </button>
+                            return (
+                                <React.Fragment key={sIdx}>
+                                    {/* Part label */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, visibility: isActivePart ? 'visible' : 'hidden' }}>
+                                        <div style={{ width: '40px', height: '3px', background: allSectionDone ? '#2563eb' : '#c0c0c0', marginBottom: '4px', borderRadius: '1px', opacity: isActivePart ? 1 : 0.4 }}></div>
+                                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: isActivePart ? cs.text : '#d1d5db', fontFamily: 'Arial, sans-serif', whiteSpace: 'nowrap' }}>
+                                            Part {sIdx + 1}
+                                        </span>
                                     </div>
-                                );
-                            })}
+
+                                    {/* Question numbers for this part — hidden if not active (but space preserved) */}
+                                    {sectionQuestions.map(q => {
+                                        const isAnswered = answers[q.displayNumber] && answers[q.displayNumber] !== '';
+                                        return (
+                                            <div key={q.displayNumber} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: isActivePart ? 'pointer' : 'default', flexShrink: 0, visibility: isActivePart ? 'visible' : 'hidden' }}
+                                                onClick={() => {
+                                                    if (!isActivePart) return;
+                                                    setFocusedQuestion(q.displayNumber);
+                                                    const el = document.getElementById(`q-${q.displayNumber}`);
+                                                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                }}
+                                            >
+                                                <div style={{ width: '18px', height: '3px', background: isAnswered ? '#2563eb' : '#c0c0c0', marginBottom: '4px', borderRadius: '1px' }}></div>
+                                                <span style={{
+                                                    fontSize: '14px', fontWeight: '400',
+                                                    color: cs.text,
+                                                    fontFamily: 'Arial, sans-serif',
+                                                    padding: '2px 5px',
+                                                    border: focusedQuestion === q.displayNumber ? '1.5px solid #2563eb' : '1.5px solid transparent',
+                                                    borderRadius: '4px'
+                                                }}>
+                                                    {q.displayNumber}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </React.Fragment>
+                            );
+                        })}
                     </div>
 
-                    {/* Checkmark submit button (far right) */}
-                    <button onClick={() => setShowSubmitModal(true)}
+                    {/* Checkmark / Next page button (fixed bottom-right corner) */}
+                    <button
+                        onClick={() => {
+                            if (currentPage < totalPages - 1) {
+                                goToPage(currentPage + 1);
+                                setFocusedQuestion((currentPage + 1) * QUESTIONS_PER_PAGE + 1);
+                            } else {
+                                setShowSubmitModal(true);
+                            }
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#c8c8c8'}
+                        onMouseLeave={e => e.currentTarget.style.background = '#e5e7eb'}
                         style={{
-                            marginLeft: 'auto', width: '42px', height: '42px', cursor: 'pointer',
+                            position: 'fixed', bottom: 0, right: 0,
+                            width: '56px', height: '52px', cursor: 'pointer',
                             background: '#e5e7eb', border: 'none',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            flexShrink: 0, borderRadius: '3px'
+                            zIndex: 101, borderRadius: 0
                         }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="20 6 9 17 4 12" />
                         </svg>
                     </button>
@@ -1247,187 +1309,191 @@ export default function ListeningExamPage() {
                 {/* ══════════════════════════════════════
                 SUBMIT MODAL
             ══════════════════════════════════════ */}
-                {showSubmitModal && (
-                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '16px' }}>
-                        <div style={{ background: 'white', padding: '24px', maxWidth: '360px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.25)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                <h3 style={{ fontWeight: 'bold', fontSize: '16px', color: '#1f2937' }}>Submit Listening Test?</h3>
-                                <button onClick={() => setShowSubmitModal(false)} style={{ color: '#9ca3af', cursor: 'pointer', background: 'none', border: 'none', fontSize: '16px' }}>
-                                    <FaTimes />
-                                </button>
-                            </div>
-                            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
-                                <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#1f2937' }}>{answeredCount}<span style={{ fontSize: '18px', color: '#9ca3af' }}>/{totalQuestions}</span></p>
-                                <p style={{ color: '#6b7280', fontSize: '13px', marginTop: '4px' }}>questions answered</p>
-                            </div>
-                            {totalQuestions - answeredCount > 0 && (
-                                <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', padding: '10px', marginBottom: '16px', textAlign: 'center' }}>
-                                    <p style={{ color: '#92400e', fontSize: '13px', fontWeight: '600' }}>
-                                        {totalQuestions - answeredCount} question{totalQuestions - answeredCount > 1 ? 's' : ''} unanswered
-                                    </p>
+                {
+                    showSubmitModal && (
+                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '16px' }}>
+                            <div style={{ background: 'white', padding: '24px', maxWidth: '360px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.25)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                    <h3 style={{ fontWeight: 'bold', fontSize: '16px', color: '#1f2937' }}>Submit Listening Test?</h3>
+                                    <button onClick={() => setShowSubmitModal(false)} style={{ color: '#9ca3af', cursor: 'pointer', background: 'none', border: 'none', fontSize: '16px' }}>
+                                        <FaTimes />
+                                    </button>
                                 </div>
-                            )}
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                <button onClick={() => setShowSubmitModal(false)}
-                                    style={{ flex: 1, padding: '10px', border: '1px solid #d1d5db', color: '#374151', fontWeight: '600', fontSize: '13px', cursor: 'pointer', background: 'white' }}>
-                                    Review
-                                </button>
-                                <button onClick={handleSubmit} disabled={isSubmitting}
-                                    style={{ flex: 1, padding: '10px', background: '#1f2937', color: 'white', fontWeight: '600', fontSize: '13px', cursor: 'pointer', border: 'none', opacity: isSubmitting ? 0.7 : 1 }}>
-                                    {isSubmitting ? 'Submitting...' : 'Submit Test'}
-                                </button>
+                                <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
+                                    <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#1f2937' }}>{answeredCount}<span style={{ fontSize: '18px', color: '#9ca3af' }}>/{totalQuestions}</span></p>
+                                    <p style={{ color: '#6b7280', fontSize: '13px', marginTop: '4px' }}>questions answered</p>
+                                </div>
+                                {totalQuestions - answeredCount > 0 && (
+                                    <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', padding: '10px', marginBottom: '16px', textAlign: 'center' }}>
+                                        <p style={{ color: '#92400e', fontSize: '13px', fontWeight: '600' }}>
+                                            {totalQuestions - answeredCount} question{totalQuestions - answeredCount > 1 ? 's' : ''} unanswered
+                                        </p>
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button onClick={() => setShowSubmitModal(false)}
+                                        style={{ flex: 1, padding: '10px', border: '1px solid #d1d5db', color: '#374151', fontWeight: '600', fontSize: '13px', cursor: 'pointer', background: 'white' }}>
+                                        Review
+                                    </button>
+                                    <button onClick={handleSubmit} disabled={isSubmitting}
+                                        style={{ flex: 1, padding: '10px', background: '#1f2937', color: 'white', fontWeight: '600', fontSize: '13px', cursor: 'pointer', border: 'none', opacity: isSubmitting ? 0.7 : 1 }}>
+                                        {isSubmitting ? 'Submitting...' : 'Submit Test'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )
+                }
 
                 {/* ══════════════════════════════════════
                     OPTIONS MENU — Inspera Style
                 ══════════════════════════════════════ */}
-                {showOptionsMenu && (
-                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 200, paddingTop: '60px' }}>
-                        <div style={{ background: 'white', maxWidth: '520px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', borderRadius: '4px', overflow: 'hidden' }}>
+                {
+                    showOptionsMenu && (
+                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 200, paddingTop: '60px' }}>
+                            <div style={{ background: 'white', maxWidth: '520px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', borderRadius: '4px', overflow: 'hidden' }}>
 
-                            {/* ── MAIN OPTIONS VIEW ── */}
-                            {optionsView === 'main' && (
-                                <div>
-                                    {/* Header */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
-                                        <div></div>
-                                        <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', fontFamily: 'Arial, sans-serif', margin: 0 }}>Options</h2>
-                                        <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#000', padding: '4px' }}>✕</button>
-                                    </div>
+                                {/* ── MAIN OPTIONS VIEW ── */}
+                                {optionsView === 'main' && (
+                                    <div>
+                                        {/* Header */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
+                                            <div></div>
+                                            <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', fontFamily: 'Arial, sans-serif', margin: 0 }}>Options</h2>
+                                            <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#000', padding: '4px' }}>✕</button>
+                                        </div>
 
-                                    {/* Go to submission page */}
-                                    <div style={{ padding: '0 24px 20px' }}>
-                                        <button onClick={() => { setShowOptionsMenu(false); setShowSubmitModal(true); }}
+                                        {/* Go to submission page */}
+                                        <div style={{ padding: '0 24px 20px' }}>
+                                            <button onClick={() => { setShowOptionsMenu(false); setShowSubmitModal(true); }}
+                                                style={{
+                                                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                    padding: '16px 20px', background: '#e41e2b', color: 'white', border: 'none',
+                                                    borderRadius: '6px', fontSize: '16px', fontWeight: '500', cursor: 'pointer',
+                                                    fontFamily: 'Arial, sans-serif'
+                                                }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+                                                    <span>Go to submission page</span>
+                                                </div>
+                                                <span style={{ fontSize: '20px' }}>›</span>
+                                            </button>
+                                        </div>
+
+                                        {/* Contrast option */}
+                                        <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 24px' }}></div>
+                                        <button onClick={() => setOptionsView('contrast')}
                                             style={{
                                                 width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                                padding: '16px 20px', background: '#e41e2b', color: 'white', border: 'none',
-                                                borderRadius: '6px', fontSize: '16px', fontWeight: '500', cursor: 'pointer',
+                                                padding: '18px 24px', background: 'none', border: 'none', cursor: 'pointer',
                                                 fontFamily: 'Arial, sans-serif'
                                             }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
-                                                <span>Go to submission page</span>
+                                                <svg width="22" height="22" viewBox="0 0 24 24" fill="#666"><circle cx="12" cy="12" r="10" fill="none" stroke="#666" strokeWidth="2" /><path d="M12 2a10 10 0 0 1 0 20z" fill="#666" /></svg>
+                                                <span style={{ fontSize: '16px', color: '#000' }}>Contrast</span>
                                             </div>
-                                            <span style={{ fontSize: '20px' }}>›</span>
+                                            <span style={{ fontSize: '20px', color: '#666' }}>›</span>
                                         </button>
-                                    </div>
 
-                                    {/* Contrast option */}
-                                    <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 24px' }}></div>
-                                    <button onClick={() => setOptionsView('contrast')}
-                                        style={{
-                                            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                            padding: '18px 24px', background: 'none', border: 'none', cursor: 'pointer',
-                                            fontFamily: 'Arial, sans-serif'
-                                        }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="#666"><circle cx="12" cy="12" r="10" fill="none" stroke="#666" strokeWidth="2" /><path d="M12 2a10 10 0 0 1 0 20z" fill="#666" /></svg>
-                                            <span style={{ fontSize: '16px', color: '#000' }}>Contrast</span>
+                                        {/* Text size option */}
+                                        <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 24px' }}></div>
+                                        <button onClick={() => setOptionsView('textsize')}
+                                            style={{
+                                                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                padding: '18px 24px', background: 'none', border: 'none', cursor: 'pointer',
+                                                fontFamily: 'Arial, sans-serif'
+                                            }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                                <svg width="22" height="22" viewBox="0 0 24 24" fill="#666"><circle cx="11" cy="11" r="7" fill="none" stroke="#666" strokeWidth="2" /><line x1="16" y1="16" x2="21" y2="21" stroke="#666" strokeWidth="2" /><text x="8" y="14" fontSize="10" fill="#666" fontWeight="bold">A</text></svg>
+                                                <span style={{ fontSize: '16px', color: '#000' }}>Text size</span>
+                                            </div>
+                                            <span style={{ fontSize: '20px', color: '#666' }}>›</span>
+                                        </button>
+                                        <div style={{ height: '16px' }}></div>
+                                    </div>
+                                )}
+
+                                {/* ── CONTRAST SUB-PANEL ── */}
+                                {optionsView === 'contrast' && (
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
+                                            <button onClick={() => setOptionsView('main')} style={{ background: 'none', border: 'none', fontSize: '15px', cursor: 'pointer', color: '#000' }}>Options</button>
+                                            <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', fontFamily: 'Arial, sans-serif', margin: 0 }}>Contrast</h2>
+                                            <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#000', padding: '4px' }}>✕</button>
                                         </div>
-                                        <span style={{ fontSize: '20px', color: '#666' }}>›</span>
-                                    </button>
-
-                                    {/* Text size option */}
-                                    <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 24px' }}></div>
-                                    <button onClick={() => setOptionsView('textsize')}
-                                        style={{
-                                            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                            padding: '18px 24px', background: 'none', border: 'none', cursor: 'pointer',
-                                            fontFamily: 'Arial, sans-serif'
-                                        }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="#666"><circle cx="11" cy="11" r="7" fill="none" stroke="#666" strokeWidth="2" /><line x1="16" y1="16" x2="21" y2="21" stroke="#666" strokeWidth="2" /><text x="8" y="14" fontSize="10" fill="#666" fontWeight="bold">A</text></svg>
-                                            <span style={{ fontSize: '16px', color: '#000' }}>Text size</span>
+                                        <div style={{ margin: '8px 24px 24px', border: '1px solid #d1d5db', borderRadius: '6px' }}>
+                                            {[
+                                                { key: 'black-on-white', label: 'Black on white' },
+                                                { key: 'white-on-black', label: 'White on black' },
+                                                { key: 'yellow-on-black', label: 'Yellow on black' }
+                                            ].map((opt, idx) => (
+                                                <button key={opt.key}
+                                                    onClick={() => setContrastMode(opt.key)}
+                                                    style={{
+                                                        width: '100%', display: 'flex', alignItems: 'center', gap: '14px',
+                                                        padding: '16px 20px', background: 'none', border: 'none',
+                                                        borderBottom: idx < 2 ? '1px solid #e5e7eb' : 'none',
+                                                        cursor: 'pointer', fontFamily: 'Arial, sans-serif'
+                                                    }}>
+                                                    {contrastMode === opt.key ? (
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#333"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
+                                                    ) : (
+                                                        <span style={{ width: '20px' }}></span>
+                                                    )}
+                                                    <span style={{ fontSize: '16px', color: '#000' }}>{opt.label}</span>
+                                                </button>
+                                            ))}
                                         </div>
-                                        <span style={{ fontSize: '20px', color: '#666' }}>›</span>
-                                    </button>
-                                    <div style={{ height: '16px' }}></div>
-                                </div>
-                            )}
+                                    </div>
+                                )}
 
-                            {/* ── CONTRAST SUB-PANEL ── */}
-                            {optionsView === 'contrast' && (
-                                <div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
-                                        <button onClick={() => setOptionsView('main')} style={{ background: 'none', border: 'none', fontSize: '15px', cursor: 'pointer', color: '#000' }}>Options</button>
-                                        <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', fontFamily: 'Arial, sans-serif', margin: 0 }}>Contrast</h2>
-                                        <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#000', padding: '4px' }}>✕</button>
+                                {/* ── TEXT SIZE SUB-PANEL ── */}
+                                {optionsView === 'textsize' && (
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
+                                            <button onClick={() => setOptionsView('main')} style={{ background: 'none', border: 'none', fontSize: '15px', cursor: 'pointer', color: '#000' }}>Options</button>
+                                            <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', fontFamily: 'Arial, sans-serif', margin: 0 }}>Text size</h2>
+                                            <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#000', padding: '4px' }}>✕</button>
+                                        </div>
+                                        <div style={{ margin: '8px 24px 24px', border: '1px solid #d1d5db', borderRadius: '6px' }}>
+                                            {[
+                                                { key: 'regular', label: 'Regular' },
+                                                { key: 'large', label: 'Large' },
+                                                { key: 'extra-large', label: 'Extra large' }
+                                            ].map((opt, idx) => (
+                                                <button key={opt.key}
+                                                    onClick={() => setTextSizeMode(opt.key)}
+                                                    style={{
+                                                        width: '100%', display: 'flex', alignItems: 'center', gap: '14px',
+                                                        padding: '16px 20px', background: 'none', border: 'none',
+                                                        borderBottom: idx < 2 ? '1px solid #e5e7eb' : 'none',
+                                                        cursor: 'pointer', fontFamily: 'Arial, sans-serif'
+                                                    }}>
+                                                    {textSizeMode === opt.key ? (
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#333"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
+                                                    ) : (
+                                                        <span style={{ width: '20px' }}></span>
+                                                    )}
+                                                    <span style={{ fontSize: '16px', color: '#000' }}>{opt.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <div style={{ margin: '8px 24px 24px', border: '1px solid #d1d5db', borderRadius: '6px' }}>
-                                        {[
-                                            { key: 'black-on-white', label: 'Black on white' },
-                                            { key: 'white-on-black', label: 'White on black' },
-                                            { key: 'yellow-on-black', label: 'Yellow on black' }
-                                        ].map((opt, idx) => (
-                                            <button key={opt.key}
-                                                onClick={() => setContrastMode(opt.key)}
-                                                style={{
-                                                    width: '100%', display: 'flex', alignItems: 'center', gap: '14px',
-                                                    padding: '16px 20px', background: 'none', border: 'none',
-                                                    borderBottom: idx < 2 ? '1px solid #e5e7eb' : 'none',
-                                                    cursor: 'pointer', fontFamily: 'Arial, sans-serif'
-                                                }}>
-                                                {contrastMode === opt.key ? (
-                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#333"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
-                                                ) : (
-                                                    <span style={{ width: '20px' }}></span>
-                                                )}
-                                                <span style={{ fontSize: '16px', color: '#000' }}>{opt.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                                )}
 
-                            {/* ── TEXT SIZE SUB-PANEL ── */}
-                            {optionsView === 'textsize' && (
-                                <div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px' }}>
-                                        <button onClick={() => setOptionsView('main')} style={{ background: 'none', border: 'none', fontSize: '15px', cursor: 'pointer', color: '#000' }}>Options</button>
-                                        <h2 style={{ fontSize: '22px', fontWeight: '400', color: '#000', fontFamily: 'Arial, sans-serif', margin: 0 }}>Text size</h2>
-                                        <button onClick={() => setShowOptionsMenu(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#000', padding: '4px' }}>✕</button>
-                                    </div>
-                                    <div style={{ margin: '8px 24px 24px', border: '1px solid #d1d5db', borderRadius: '6px' }}>
-                                        {[
-                                            { key: 'regular', label: 'Regular' },
-                                            { key: 'large', label: 'Large' },
-                                            { key: 'extra-large', label: 'Extra large' }
-                                        ].map((opt, idx) => (
-                                            <button key={opt.key}
-                                                onClick={() => setTextSizeMode(opt.key)}
-                                                style={{
-                                                    width: '100%', display: 'flex', alignItems: 'center', gap: '14px',
-                                                    padding: '16px 20px', background: 'none', border: 'none',
-                                                    borderBottom: idx < 2 ? '1px solid #e5e7eb' : 'none',
-                                                    cursor: 'pointer', fontFamily: 'Arial, sans-serif'
-                                                }}>
-                                                {textSizeMode === opt.key ? (
-                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#333"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
-                                                ) : (
-                                                    <span style={{ width: '20px' }}></span>
-                                                )}
-                                                <span style={{ fontSize: '16px', color: '#000' }}>{opt.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
+                            </div>
                         </div>
-                    </div>
-                )}
-            </div>
-        </div>
+                    )
+                }
+            </div >
+        </div >
     );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NoteCompletionRow — IELTS Integrated Box Style
 // ─────────────────────────────────────────────────────────────────────────────
-function NoteCompletionRow({ q, answers, handleAnswer, textColor = '#000' }) {
+function NoteCompletionRow({ q, answers, handleAnswer, textColor = '#000', isFocused = false }) {
     const rawText = q.questionText || '';
 
     // Handle header rows (e.g. "**Dining table**")
@@ -1461,10 +1527,11 @@ function NoteCompletionRow({ q, answers, handleAnswer, textColor = '#000' }) {
             verticalAlign: 'middle',
             margin: '0 6px',
             position: 'relative',
-            border: `1.5px solid ${textColor}`,
+            border: isFocused ? '2px solid #2563eb' : `1.5px solid ${textColor}`,
             background: 'transparent',
             width: '190px',
-            height: '32px'
+            height: '32px',
+            borderRadius: '4px'
         }}>
             {/* Question number — centered, visible only when input is empty */}
             {!answerValue && (
