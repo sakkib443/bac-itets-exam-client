@@ -1224,82 +1224,105 @@ export default function ListeningExamPage() {
                 </div>
 
                 {/* ══════════════════════════════════════
-                FIXED BOTTOM NAV — Inspera Clone (Part + question nums + checkmark)
+                FIXED BOTTOM NAV — Reading Page Style (Part labels + question nums)
             ══════════════════════════════════════ */}
                 <div style={{
                     position: 'fixed', bottom: 0, left: 0, right: 0,
-                    background: cs.bg, borderTop: `1px solid ${contrastMode === 'black-on-white' ? '#d1d5db' : '#555'}`,
+                    background: cs.bg,
                     display: 'flex', alignItems: 'center',
-                    height: '52px', padding: '0 16px', zIndex: 100
+                    height: '44px', padding: '0', zIndex: 100
                 }}>
-                    {/* All Parts with question numbers */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, overflowX: 'auto' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', flex: 1, height: '100%' }}>
                         {sections.map((sec, sIdx) => {
                             const isActivePart = sIdx === currentSectionIndex;
                             const sectionQuestions = allRealQuestions.filter(q => q._sectionIndex === sIdx);
-                            const allSectionDone = sectionQuestions.length > 0 && sectionQuestions.every(q => answers[q.displayNumber] && answers[q.displayNumber] !== '');
+                            const sectionAnswered = sectionQuestions.filter(q => answers[q.displayNumber] && answers[q.displayNumber] !== '').length;
 
                             return (
-                                <React.Fragment key={sIdx}>
+                                <div key={sIdx} style={{
+                                    flex: 1, display: 'flex', alignItems: 'center',
+                                    gap: '6px', height: '100%', padding: '0 12px',
+                                    cursor: 'pointer', borderRadius: '4px', overflow: 'hidden'
+                                }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#f0f0f0'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                    onClick={() => {
+                                        const firstQ = sectionQuestions[0];
+                                        if (firstQ) {
+                                            const targetPage = Math.floor((firstQ.displayNumber - 1) / QUESTIONS_PER_PAGE);
+                                            goToPage(targetPage);
+                                            setFocusedQuestion(firstQ.displayNumber);
+                                        }
+                                    }}
+                                >
                                     {/* Part label */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, visibility: isActivePart ? 'visible' : 'hidden' }}>
-                                        <div style={{ width: '40px', height: '3px', background: allSectionDone ? '#2563eb' : '#c0c0c0', marginBottom: '4px', borderRadius: '1px', opacity: isActivePart ? 1 : 0.4 }}></div>
-                                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: isActivePart ? cs.text : '#d1d5db', fontFamily: 'Arial, sans-serif', whiteSpace: 'nowrap' }}>
-                                            Part {sIdx + 1}
-                                        </span>
-                                    </div>
+                                    <span style={{
+                                        fontSize: '14px', fontWeight: 'bold', color: isActivePart ? cs.text : '#888',
+                                        fontFamily: 'Arial, sans-serif', whiteSpace: 'nowrap', flexShrink: 0
+                                    }}>
+                                        Part {sIdx + 1}
+                                    </span>
 
-                                    {/* Question numbers for this part — hidden if not active (but space preserved) */}
-                                    {sectionQuestions.map(q => {
-                                        const isAnswered = answers[q.displayNumber] && answers[q.displayNumber] !== '';
-                                        return (
-                                            <div key={q.displayNumber} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: isActivePart ? 'pointer' : 'default', flexShrink: 0, visibility: isActivePart ? 'visible' : 'hidden' }}
-                                                onClick={() => {
-                                                    if (!isActivePart) return;
-                                                    setFocusedQuestion(q.displayNumber);
-                                                    const el = document.getElementById(`q-${q.displayNumber}`);
-                                                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                }}
-                                            >
-                                                <div style={{ width: '18px', height: '3px', background: isAnswered ? '#2563eb' : '#c0c0c0', marginBottom: '4px', borderRadius: '1px' }}></div>
-                                                <span style={{
-                                                    fontSize: '14px', fontWeight: '400',
-                                                    color: cs.text,
-                                                    fontFamily: 'Arial, sans-serif',
-                                                    padding: '2px 5px',
-                                                    border: focusedQuestion === q.displayNumber ? '1.5px solid #2563eb' : '1.5px solid transparent',
-                                                    borderRadius: '4px'
-                                                }}>
-                                                    {q.displayNumber}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </React.Fragment>
+                                    {/* Active: question numbers | Inactive: answered count */}
+                                    {isActivePart ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexWrap: 'nowrap' }}>
+                                            {sectionQuestions.map(q => {
+                                                const isAnswered = answers[q.displayNumber] && answers[q.displayNumber] !== '';
+                                                const isFocused = focusedQuestion === q.displayNumber;
+                                                return (
+                                                    <div key={q.displayNumber}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setFocusedQuestion(q.displayNumber);
+                                                            const el = document.getElementById(`q-${q.displayNumber}`);
+                                                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                        }}
+                                                        style={{
+                                                            display: 'flex', flexDirection: 'column', alignItems: 'center',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <div style={{ width: '18px', height: '3px', background: isAnswered ? '#2563eb' : '#c0c0c0', marginBottom: '3px', borderRadius: '1px' }}></div>
+                                                        <span style={{
+                                                            fontSize: '14px', fontWeight: '400',
+                                                            color: cs.text,
+                                                            fontFamily: 'Arial, sans-serif',
+                                                            padding: '2px 3px',
+                                                            border: isFocused ? '1.5px solid #2563eb' : '1.5px solid transparent',
+                                                            borderRadius: '3px',
+                                                            lineHeight: '1'
+                                                        }}>
+                                                            {q.displayNumber}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <span style={{
+                                            fontSize: '13px', fontWeight: '400', color: '#aaa',
+                                            fontFamily: 'Arial, sans-serif', whiteSpace: 'nowrap'
+                                        }}>
+                                            {sectionAnswered} of {sectionQuestions.length}
+                                        </span>
+                                    )}
+                                </div>
                             );
                         })}
                     </div>
 
-                    {/* Checkmark / Next page button (fixed bottom-right corner) */}
+                    {/* Submit checkmark button */}
                     <button
-                        onClick={() => {
-                            if (currentPage < totalPages - 1) {
-                                goToPage(currentPage + 1);
-                                setFocusedQuestion((currentPage + 1) * QUESTIONS_PER_PAGE + 1);
-                            } else {
-                                setShowSubmitModal(true);
-                            }
-                        }}
+                        onClick={() => setShowSubmitModal(true)}
                         onMouseEnter={e => e.currentTarget.style.background = '#c8c8c8'}
                         onMouseLeave={e => e.currentTarget.style.background = '#e5e7eb'}
                         style={{
-                            position: 'fixed', bottom: 0, right: 0,
-                            width: '56px', height: '52px', cursor: 'pointer',
+                            width: '48px', height: '44px', cursor: 'pointer',
                             background: '#e5e7eb', border: 'none',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            zIndex: 101, borderRadius: 0
+                            flexShrink: 0, borderRadius: 0
                         }}>
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="20 6 9 17 4 12" />
                         </svg>
                     </button>
