@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
     FaBook,
@@ -32,6 +32,40 @@ export default function ReadingExamPage() {
     const [showInstructions, setShowInstructions] = useState(true);
     const [fontSize, setFontSize] = useState(16);
     const [focusedQuestion, setFocusedQuestion] = useState(1);
+    const [splitPercent, setSplitPercent] = useState(50); // left panel width %
+    const isDragging = useRef(false);
+    const containerRef = useRef(null);
+
+    // Splitter drag handlers
+    const onSplitterMouseDown = useCallback((e) => {
+        e.preventDefault();
+        isDragging.current = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+    }, []);
+
+    useEffect(() => {
+        const onMouseMove = (e) => {
+            if (!isDragging.current || !containerRef.current) return;
+            const rect = containerRef.current.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const pct = Math.min(Math.max((x / rect.width) * 100, 20), 80);
+            setSplitPercent(pct);
+        };
+        const onMouseUp = () => {
+            if (isDragging.current) {
+                isDragging.current = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        };
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+    }, []);
 
     // Options menu states
     const [showOptionsMenu, setShowOptionsMenu] = useState(false);
@@ -497,48 +531,56 @@ export default function ReadingExamPage() {
     // Instructions Screen
     if (showInstructions) {
         return (
-            <div className="min-h-screen bg-white flex items-center justify-center p-4">
-                <div className="max-w-2xl w-full">
-                    <div className="flex items-center gap-3 mb-6 pb-4 border-b-2 border-blue-600">
-                        <span className="text-blue-600 font-bold text-2xl">IELTS</span>
-                        <span className="text-gray-600">| Reading Test</span>
+            <div style={{ minHeight: '100vh', backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', fontFamily: 'Arial, sans-serif' }}>
+                <div style={{ maxWidth: '640px', width: '100%' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '2px solid #2563eb' }}>
+                        <span style={{ color: '#dc2626', fontWeight: '900', fontSize: '28px' }}>IELTS</span>
+                        <span style={{ color: '#6b7280', fontSize: '16px' }}>| Reading Test</span>
                     </div>
 
-                    <h1 className="text-2xl font-bold text-gray-800 mb-4">Reading Test Instructions</h1>
+                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}>Reading Test Instructions</h1>
 
-                    <div className="bg-gray-50 border border-gray-200 rounded p-4 mb-4">
-                        <p className="text-gray-700 mb-3">
+                    <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+                        <p style={{ color: '#374151', marginBottom: '12px' }}>
                             <strong>Set:</strong> {questionSet?.title || `Reading Set #${questionSet?.setNumber}`}
                         </p>
-                        <p className="text-gray-700 mb-3">
+                        <p style={{ color: '#374151', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <FaClock style={{ color: '#2563eb' }} />
                             <strong>Time:</strong> {questionSet?.duration || 60} minutes
                         </p>
-                        <p className="text-gray-700 mb-3">
+                        <p style={{ color: '#374151', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <FaBook style={{ color: '#2563eb' }} />
                             <strong>Questions:</strong> {totalQuestions} questions in {passages.length} passages
                         </p>
-                        <p className="text-gray-700">
+                        <p style={{ color: '#374151' }}>
                             <strong>Instructions:</strong> Read the passages and answer the questions.
                             You can move between questions and passages freely.
                         </p>
                     </div>
 
-                    <div className="bg-blue-50 border border-blue-200 rounded p-4 mb-6">
-                        <h3 className="font-semibold text-blue-800 mb-2">Question Types:</h3>
-                        <ul className="text-blue-700 text-sm space-y-1">
-                            <li>â€¢ True/False/Not Given</li>
-                            <li>â€¢ Multiple Choice</li>
-                            <li>â€¢ Sentence Completion</li>
-                            <li>â€¢ Matching</li>
+                    <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '16px', marginBottom: '24px' }}>
+                        <h3 style={{ fontWeight: '600', color: '#1e40af', marginBottom: '8px' }}>Question Types:</h3>
+                        <ul style={{ color: '#1d4ed8', fontSize: '14px', listStyle: 'none', padding: 0, margin: 0 }}>
+                            <li style={{ marginBottom: '4px' }}>• True/False/Not Given</li>
+                            <li style={{ marginBottom: '4px' }}>• Multiple Choice</li>
+                            <li style={{ marginBottom: '4px' }}>• Sentence Completion</li>
+                            <li>• Matching</li>
                         </ul>
                     </div>
 
                     <button
                         onClick={() => setShowInstructions(false)}
-                        className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 hover:shadow-lg transition-all flex items-center justify-center gap-3 cursor-pointer group"
+                        style={{
+                            width: '100%', backgroundColor: '#2563eb', color: 'white', padding: '16px',
+                            borderRadius: '12px', fontWeight: 'bold', fontSize: '18px', border: 'none',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#1d4ed8'}
+                        onMouseLeave={e => e.currentTarget.style.backgroundColor = '#2563eb'}
                     >
-                        <FaPlay className="text-sm transition-transform group-hover:scale-110" />
+                        <FaPlay style={{ fontSize: '14px' }} />
                         <span>Start Reading Test</span>
-                        <FaArrowRight className="text-sm transition-transform group-hover:translate-x-1" />
+                        <FaArrowRight style={{ fontSize: '14px' }} />
                     </button>
                 </div>
             </div>
@@ -589,22 +631,22 @@ export default function ReadingExamPage() {
             {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 PASSAGE BANNER â€” Inspera Style
             â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-            < div style={{ backgroundColor: cs.partBg, borderBottom: `1px solid ${cs.partBorder}`, padding: '12px 40px', flexShrink: 0, fontFamily: 'Arial, sans-serif' }
+            < div style={{ backgroundColor: cs.partBg, borderBottom: `1px solid ${cs.partBorder}`, padding: '8px 40px', flexShrink: 0, fontFamily: 'Arial, sans-serif' }
             }>
-                <div style={{ fontWeight: 'bold', fontSize: `${15.5 * tScale}px`, color: cs.text, marginBottom: '2px' }}>
-                    Passage {currentPassage + 1}
+                <div style={{ fontWeight: 'bold', fontSize: `${15 * tScale}px`, color: cs.text, marginBottom: '2px' }}>
+                    Part {currentPassage + 1}
                 </div>
-                <div style={{ fontSize: `${16 * tScale}px`, color: cs.text }}>
-                    {currentPass.title}
+                <div style={{ fontSize: `${13 * tScale}px`, color: contrastMode === 'black-on-white' ? '#6b7280' : cs.text }}>
+                    Read the text and answer questions {currentQuestions.length > 0 ? `${currentQuestions[0].questionNumber}–${currentQuestions[currentQuestions.length - 1].questionNumber}` : ''}.
                 </div>
             </div >
 
             {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 MAIN CONTENT â€” Two Column Layout
             â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-            < div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+            < div ref={containerRef} style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
                 {/* LEFT: Passage Text */}
-                < div style={{ flex: 1, overflowY: 'auto', padding: '20px 30px', borderRight: `1px solid ${contrastMode === 'black-on-white' ? '#d1d5db' : '#555'}`, backgroundColor: cs.bg, color: cs.text, fontSize: `${16 * tScale}px`, fontFamily: 'Arial, sans-serif' }}>
+                < div style={{ width: `${splitPercent}%`, overflowY: 'auto', padding: '20px 30px', backgroundColor: cs.bg, color: cs.text, fontSize: `${16 * tScale}px`, fontFamily: 'Arial, sans-serif', flexShrink: 0 }}>
                     <h3 style={{ fontWeight: 'bold', fontSize: `${18 * tScale}px`, color: cs.text, marginBottom: '16px' }}>{currentPass.title}</h3>
                     {currentPass.source && <p style={{ fontSize: `${12 * tScale}px`, color: contrastMode === 'black-on-white' ? '#6b7280' : cs.text, marginBottom: '12px', fontStyle: 'italic' }}>{currentPass.source}</p>}
                     <TextHighlighter passageId={`reading_passage_${currentPassage}`}>
@@ -613,6 +655,19 @@ export default function ReadingExamPage() {
                         ))}
                     </TextHighlighter>
                 </div >
+
+                {/* SPLITTER — draggable resize handle */}
+                <div
+                    onMouseDown={onSplitterMouseDown}
+                    style={{
+                        width: '18px', cursor: 'col-resize', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        backgroundColor: contrastMode === 'black-on-white' ? '#e5e7eb' : '#444', flexShrink: 0, zIndex: 10,
+                        borderLeft: `1px solid ${contrastMode === 'black-on-white' ? '#d1d5db' : '#555'}`,
+                        borderRight: `1px solid ${contrastMode === 'black-on-white' ? '#d1d5db' : '#555'}`
+                    }}
+                >
+                    <span style={{ fontSize: '22px', color: contrastMode === 'black-on-white' ? '#6b7280' : '#ccc', userSelect: 'none', fontWeight: 'bold', border: `1.5px solid ${contrastMode === 'black-on-white' ? '#9ca3af' : '#888'}`, borderRadius: '4px', padding: '2px 4px', lineHeight: '1', background: contrastMode === 'black-on-white' ? '#fff' : '#333' }}>↔</span>
+                </div>
 
                 {/* RIGHT: Questions */}
                 < div style={{ flex: 1, overflowY: 'auto', padding: '20px 30px 250px 30px', backgroundColor: cs.bg, color: cs.text, fontSize: `${16 * tScale}px`, fontFamily: 'Arial, sans-serif' }}>
