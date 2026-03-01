@@ -615,7 +615,7 @@ export default function ReadingExamPage() {
                 </div >
 
                 {/* RIGHT: Questions */}
-                < div style={{ flex: 1, overflowY: 'auto', padding: '20px 30px', backgroundColor: cs.bg, color: cs.text, fontSize: `${16 * tScale}px`, fontFamily: 'Arial, sans-serif' }}>
+                < div style={{ flex: 1, overflowY: 'auto', padding: '20px 30px 250px 30px', backgroundColor: cs.bg, color: cs.text, fontSize: `${16 * tScale}px`, fontFamily: 'Arial, sans-serif' }}>
                     <TextHighlighter passageId={`reading_questions_${currentPassage}`}>
                         {currentPass.questionGroups && currentPass.questionGroups.length > 0 ? (
                             currentPass.questionGroups.map((group, gIdx) => (
