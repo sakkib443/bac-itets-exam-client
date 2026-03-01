@@ -634,7 +634,6 @@ export default function ListeningExamPage() {
                                 onClick={() => {
                                     setSoundTestResult('yes');
                                     setShowSoundTest(false);
-                                    setShowInstructions(true);
                                 }}
                                 style={{
                                     backgroundColor: '#16a34a',
