@@ -109,29 +109,32 @@ export default function ReadingExamPage() {
                     const verifyResponse = await studentsAPI.verifyExamId(parsed.examId);
                     if (verifyResponse.success && verifyResponse.data) {
                         const dbCompletedModules = verifyResponse.data.completedModules || [];
-                        const isFinished = dbCompletedModules.length >= 3;
+                        const setNum = parsed.currentSetNumber;
+                        const isThisSetDone = setNum
+                            ? (dbCompletedModules.includes(`reading:${setNum}`) || dbCompletedModules.includes("reading"))
+                            : dbCompletedModules.includes("reading");
 
-                        // Security check: If reading is already completed OR all 3 are done, redirect back
-                        if (dbCompletedModules.includes("reading") || isFinished) {
-                            // Update localStorage to keep in sync
+                        if (isThisSetDone) {
                             parsed.completedModules = dbCompletedModules;
                             localStorage.setItem("examSession", JSON.stringify(parsed));
-
                             router.push(`/exam/${params.examId}`);
                             return;
                         }
                     }
                 } catch (apiError) {
                     console.error("Failed to verify completion from DB, using localStorage:", apiError);
-                    // Fallback to localStorage check
-                    if (parsed.completedModules && (parsed.completedModules.includes("reading") || parsed.completedModules.length >= 3)) {
+                    const setNum = parsed.currentSetNumber;
+                    const isThisSetDone = setNum
+                        ? (parsed.completedModules?.includes(`reading:${setNum}`) || parsed.completedModules?.includes("reading"))
+                        : parsed.completedModules?.includes("reading");
+                    if (isThisSetDone) {
                         router.push(`/exam/${params.examId}`);
                         return;
                     }
                 }
 
-                // Check if reading set is assigned
-                const readingSetNumber = parsed.assignedSets?.readingSetNumber;
+                // Use currentSetNumber (set on exam card click) or fallback to single set
+                const readingSetNumber = parsed.currentSetNumber || parsed.assignedSets?.readingSetNumber;
                 if (!readingSetNumber) {
                     setLoadError("No reading test assigned for this exam.");
                     setIsLoading(false);
@@ -435,17 +438,19 @@ export default function ReadingExamPage() {
 
         // Save to backend
         try {
+            const currentSetNumber = sessionData?.currentSetNumber;
             const response = await studentsAPI.saveModuleScore(examId, "reading", {
                 score: score,
                 total: totalMarks,
                 band: bandScore,
-                answers: detailedAnswers // Send answers to backend
+                answers: detailedAnswers,
+                setNumber: currentSetNumber
             });
             console.log("Reading data saved with answers");
 
             // Update localStorage
             if (response.success && sessionData) {
-                sessionData.completedModules = response.data?.completedModules || [...(sessionData.completedModules || []), "reading"];
+                sessionData.completedModules = response.data?.completedModules || [...(sessionData.completedModules || []), currentSetNumber ? `reading:${currentSetNumber}` : "reading"];
                 sessionData.scores = response.data?.scores || {
                     ...(sessionData.scores || {}),
                     reading: { band: bandScore, raw: score, correctAnswers: score, totalQuestions: totalMarks }
@@ -456,7 +461,8 @@ export default function ReadingExamPage() {
             console.error("Failed to save reading score:", error);
             // Still update localStorage even if backend fails
             if (sessionData) {
-                sessionData.completedModules = [...(sessionData.completedModules || []), "reading"];
+                const currentSetNumber = sessionData?.currentSetNumber;
+                sessionData.completedModules = [...(sessionData.completedModules || []), currentSetNumber ? `reading:${currentSetNumber}` : "reading"];
                 sessionData.scores = {
                     ...(sessionData.scores || {}),
                     reading: { band: bandScore, raw: score, correctAnswers: score, totalQuestions: totalMarks }

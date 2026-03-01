@@ -207,7 +207,11 @@ export default function ListeningExamPage() {
                     const verifyResponse = await studentsAPI.verifyExamId(parsed.examId);
                     if (verifyResponse.success && verifyResponse.data) {
                         const dbMods = verifyResponse.data.completedModules || [];
-                        if (dbMods.includes("listening") || dbMods.length >= 3) {
+                        const setNum = parsed.currentSetNumber;
+                        const isThisSetDone = setNum
+                            ? (dbMods.includes(`listening:${setNum}`) || dbMods.includes("listening"))
+                            : dbMods.includes("listening");
+                        if (isThisSetDone) {
                             parsed.completedModules = dbMods;
                             localStorage.setItem("examSession", JSON.stringify(parsed));
                             router.push(`/exam/${params.examId}`);
@@ -215,13 +219,18 @@ export default function ListeningExamPage() {
                         }
                     }
                 } catch {
-                    if (parsed.completedModules && (parsed.completedModules.includes("listening") || parsed.completedModules.length >= 3)) {
+                    const setNum = parsed.currentSetNumber;
+                    const isThisSetDone = setNum
+                        ? (parsed.completedModules?.includes(`listening:${setNum}`) || parsed.completedModules?.includes("listening"))
+                        : parsed.completedModules?.includes("listening");
+                    if (isThisSetDone) {
                         router.push(`/exam/${params.examId}`);
                         return;
                     }
                 }
 
-                const listeningSetNumber = parsed.assignedSets?.listeningSetNumber;
+                // Use currentSetNumber (set on exam card click) or fallback to single set
+                const listeningSetNumber = parsed.currentSetNumber || parsed.assignedSets?.listeningSetNumber;
                 if (!listeningSetNumber) {
                     setLoadError("No listening test assigned for this exam.");
                     setIsLoading(false);
@@ -457,15 +466,17 @@ export default function ListeningExamPage() {
         const examId = sd?.examId || session?.examId;
 
         try {
-            const res = await studentsAPI.saveModuleScore(examId, "listening", { score, total: totalMarks, band, answers: detailedAnswers });
+            const currentSetNumber = sd?.currentSetNumber;
+            const res = await studentsAPI.saveModuleScore(examId, "listening", { score, total: totalMarks, band, answers: detailedAnswers, setNumber: currentSetNumber });
             if (res.success && sd) {
-                sd.completedModules = res.data?.completedModules || [...(sd.completedModules || []), "listening"];
+                sd.completedModules = res.data?.completedModules || [...(sd.completedModules || []), currentSetNumber ? `listening:${currentSetNumber}` : "listening"];
                 sd.scores = res.data?.scores || { ...(sd.scores || {}), listening: { band, raw: score, correctAnswers: score, totalQuestions: totalMarks } };
                 localStorage.setItem("examSession", JSON.stringify(sd));
             }
         } catch {
             if (sd) {
-                sd.completedModules = [...(sd.completedModules || []), "listening"];
+                const currentSetNumber = sd?.currentSetNumber;
+                sd.completedModules = [...(sd.completedModules || []), currentSetNumber ? `listening:${currentSetNumber}` : "listening"];
                 sd.scores = { ...(sd.scores || {}), listening: { band, raw: score, correctAnswers: score, totalQuestions: totalMarks } };
                 localStorage.setItem("examSession", JSON.stringify(sd));
             }

@@ -83,7 +83,37 @@ export default function StudentDashboard() {
         completedModules = [],
     } = studentData;
 
-    const isAllCompleted = completedModules.length >= 3;
+    // Build module cards for multi-set support
+    const getModuleSets = (moduleName) => {
+        const sets = studentData.assignedSets || {};
+        const arrKey = `${moduleName}SetNumbers`;
+        const singleKey = `${moduleName}SetNumber`;
+        if (sets[arrKey]?.length > 0) return sets[arrKey];
+        if (sets[singleKey]) return [sets[singleKey]];
+        return [];
+    };
+
+    const moduleConfigs = [
+        { id: 'listening', label: 'Listening', icon: FaHeadphones },
+        { id: 'reading', label: 'Reading', icon: FaBook },
+        { id: 'writing', label: 'Writing', icon: FaPen },
+    ];
+
+    // Generate individual module cards (one per set)
+    const allModuleCards = moduleConfigs.flatMap(mod => {
+        const sets = getModuleSets(mod.id);
+        if (sets.length <= 1) {
+            return [{ ...mod, label: mod.label, completed: completedModules.includes(mod.id) || completedModules.includes(`${mod.id}:${sets[0]}`) }];
+        }
+        return sets.map((setNum, idx) => ({
+            ...mod,
+            label: `${mod.label} Exam ${idx + 1}`,
+            completed: completedModules.includes(`${mod.id}:${setNum}`) || completedModules.includes(mod.id),
+        }));
+    });
+
+    const totalModuleSets = allModuleCards.length;
+    const isAllCompleted = allModuleCards.length > 0 && allModuleCards.every(c => c.completed);
 
     // Check if today is exam day
     const isExamDay = () => {
@@ -120,6 +150,9 @@ export default function StudentDashboard() {
                 studentName: studentData.nameEnglish,
                 name: studentData.nameEnglish,
                 email: studentData.email,
+                assignedSets: studentData.assignedSets || {},
+                completedModules: studentData.completedModules || [],
+                scores: studentData.scores || {},
             })
         );
         router.push(`/exam/${examId}`);
@@ -146,7 +179,7 @@ export default function StudentDashboard() {
                 />
                 <StatCard
                     label="Completed"
-                    value={`${completedModules.length}/3 Modules`}
+                    value={`${completedModules.length}/${totalModuleSets} Modules`}
                 />
                 <StatCard
                     label="Exam Date"
@@ -205,33 +238,26 @@ export default function StudentDashboard() {
                     <div className="mb-5">
                         <div className="flex justify-between text-xs text-gray-500 mb-2">
                             <span>Progress</span>
-                            <span>{completedModules.length}/3 completed</span>
+                            <span>{completedModules.length}/{totalModuleSets} completed</span>
                         </div>
                         <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-cyan-600 rounded-full transition-all duration-500"
-                                style={{ width: `${(completedModules.length / 3) * 100}%` }}
+                                style={{ width: `${totalModuleSets > 0 ? (completedModules.length / totalModuleSets) * 100 : 0}%` }}
                             />
                         </div>
                     </div>
 
-                    {/* Module Cards */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <ModuleCard
-                            title="Listening"
-                            icon={FaHeadphones}
-                            completed={completedModules.includes("listening")}
-                        />
-                        <ModuleCard
-                            title="Reading"
-                            icon={FaBook}
-                            completed={completedModules.includes("reading")}
-                        />
-                        <ModuleCard
-                            title="Writing"
-                            icon={FaPen}
-                            completed={completedModules.includes("writing")}
-                        />
+                    {/* Module Cards — Multi-Set Aware */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
+                        {allModuleCards.map((card, i) => (
+                            <ModuleCard
+                                key={i}
+                                title={card.label}
+                                icon={card.icon}
+                                completed={card.completed}
+                            />
+                        ))}
                     </div>
                 </div>
             </div>

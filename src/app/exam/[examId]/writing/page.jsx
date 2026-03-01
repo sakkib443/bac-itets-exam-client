@@ -116,7 +116,11 @@ export default function WritingExamPage() {
                     const verifyResponse = await studentsAPI.verifyExamId(parsed.examId);
                     if (verifyResponse.success && verifyResponse.data) {
                         const dbCompletedModules = verifyResponse.data.completedModules || [];
-                        if (dbCompletedModules.includes("writing") || dbCompletedModules.length >= 3) {
+                        const setNum = parsed.currentSetNumber;
+                        const isThisSetDone = setNum
+                            ? (dbCompletedModules.includes(`writing:${setNum}`) || dbCompletedModules.includes("writing"))
+                            : dbCompletedModules.includes("writing");
+                        if (isThisSetDone) {
                             parsed.completedModules = dbCompletedModules;
                             localStorage.setItem("examSession", JSON.stringify(parsed));
                             router.push(`/exam/${params.examId}`);
@@ -124,13 +128,18 @@ export default function WritingExamPage() {
                         }
                     }
                 } catch (apiError) {
-                    if (parsed.completedModules && (parsed.completedModules.includes("writing") || parsed.completedModules.length >= 3)) {
+                    const setNum = parsed.currentSetNumber;
+                    const isThisSetDone = setNum
+                        ? (parsed.completedModules?.includes(`writing:${setNum}`) || parsed.completedModules?.includes("writing"))
+                        : parsed.completedModules?.includes("writing");
+                    if (isThisSetDone) {
                         router.push(`/exam/${params.examId}`);
                         return;
                     }
                 }
 
-                const writingSetNumber = parsed.assignedSets?.writingSetNumber;
+                // Use currentSetNumber (set on exam card click) or fallback to single set
+                const writingSetNumber = parsed.currentSetNumber || parsed.assignedSets?.writingSetNumber;
                 if (!writingSetNumber) {
                     setLoadError("No writing test assigned for this exam.");
                     setIsLoading(false);
@@ -243,18 +252,21 @@ export default function WritingExamPage() {
         const examId = sessionData?.examId;
 
         try {
+            const currentSetNumber = sessionData?.currentSetNumber;
             const response = await studentsAPI.saveModuleScore(examId, "writing", {
                 band: bandScore, task1Words, task2Words,
-                answers: { task1: answers.task1, task2: answers.task2 }
+                answers: { task1: answers.task1, task2: answers.task2 },
+                setNumber: currentSetNumber
             });
             if (response.success && sessionData) {
-                sessionData.completedModules = response.data?.completedModules || [...(sessionData.completedModules || []), "writing"];
+                sessionData.completedModules = response.data?.completedModules || [...(sessionData.completedModules || []), currentSetNumber ? `writing:${currentSetNumber}` : "writing"];
                 sessionData.scores = response.data?.scores || { ...(sessionData.scores || {}), writing: { overallBand: bandScore, task1Band: bandScore, task2Band: bandScore } };
                 localStorage.setItem("examSession", JSON.stringify(sessionData));
             }
         } catch (error) {
             if (sessionData) {
-                sessionData.completedModules = [...(sessionData.completedModules || []), "writing"];
+                const currentSetNumber = sessionData?.currentSetNumber;
+                sessionData.completedModules = [...(sessionData.completedModules || []), currentSetNumber ? `writing:${currentSetNumber}` : "writing"];
                 sessionData.scores = { ...(sessionData.scores || {}), writing: { overallBand: bandScore, task1Band: bandScore, task2Band: bandScore } };
                 localStorage.setItem("examSession", JSON.stringify(sessionData));
             }

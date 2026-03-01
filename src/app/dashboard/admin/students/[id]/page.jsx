@@ -884,6 +884,46 @@ function StudentContent() {
                 </div>
             </div>
 
+            {/* Assigned Question Sets Info */}
+            {student.assignedSets && (
+                <div className="bg-white rounded-md border border-slate-200 p-4 mb-5">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <FaClipboardCheck className="text-indigo-400" /> Assigned Question Sets
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {[
+                            { label: 'Listening', icon: FaHeadphones, color: 'text-indigo-600 bg-indigo-50', sets: student.assignedSets.listeningSetNumbers?.length ? student.assignedSets.listeningSetNumbers : (student.assignedSets.listeningSetNumber ? [student.assignedSets.listeningSetNumber] : []) },
+                            { label: 'Reading', icon: FaBook, color: 'text-emerald-600 bg-emerald-50', sets: student.assignedSets.readingSetNumbers?.length ? student.assignedSets.readingSetNumbers : (student.assignedSets.readingSetNumber ? [student.assignedSets.readingSetNumber] : []) },
+                            { label: 'Writing', icon: FaPen, color: 'text-violet-600 bg-violet-50', sets: student.assignedSets.writingSetNumbers?.length ? student.assignedSets.writingSetNumbers : (student.assignedSets.writingSetNumber ? [student.assignedSets.writingSetNumber] : []) },
+                            { label: 'Speaking', icon: FaMicrophone, color: 'text-orange-600 bg-orange-50', sets: student.assignedSets.speakingSetNumbers?.length ? student.assignedSets.speakingSetNumbers : (student.assignedSets.speakingSetNumber ? [student.assignedSets.speakingSetNumber] : []) },
+                        ].map((mod, i) => {
+                            const Icon = mod.icon;
+                            return (
+                                <div key={i} className="border border-slate-100 rounded-md p-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className={`w-6 h-6 rounded flex items-center justify-center ${mod.color}`}>
+                                            <Icon className="text-xs" />
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-700">{mod.label}</span>
+                                    </div>
+                                    {mod.sets.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                            {mod.sets.map((s, j) => (
+                                                <span key={j} className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-medium">
+                                                    Set #{s}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <span className="text-[10px] text-slate-400 italic">Not assigned</span>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* Module Score Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
                 <ModuleScoreCard

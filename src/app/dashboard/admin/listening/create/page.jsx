@@ -388,12 +388,7 @@ function CreateListeningPageContent() {
     return (
         <div className={`pb-10 mx-auto ${showPreview ? 'max-w-[1600px]' : 'max-w-5xl'}`}>
 
-            {/* ═══ DEBUG ═══ */}
-            {isEditMode && (
-                <div className="bg-yellow-50 border border-yellow-300 rounded-lg px-4 py-2 mb-4 text-xs font-mono text-yellow-800">
-                    🐛 Debug: {sections.map((s, i) => `Part${i + 1}: ${(s.questionGroups || []).length}groups/${(s.questions || []).length}rawQs`).join(' | ')}
-                </div>
-            )}
+
 
             {/* ═══ Header ═══ */}
             <div className="flex items-center justify-between mb-6">
