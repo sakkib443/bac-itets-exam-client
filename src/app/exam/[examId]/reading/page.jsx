@@ -594,7 +594,7 @@ export default function ReadingExamPage() {
     }
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'Arial, sans-serif', backgroundColor: cs.bg, color: cs.text }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'Arial, sans-serif',  backgroundColor: cs.bg, color: cs.text }}>
 
             {/* Exam Security */}
             {!showInstructions && (

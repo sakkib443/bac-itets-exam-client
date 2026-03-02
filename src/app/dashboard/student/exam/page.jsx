@@ -130,7 +130,7 @@ export default function StudentExams() {
                 <div className="bg-white border border-gray-200 rounded-md px-4 py-2.5 flex items-center gap-3">
                     <div className="text-right">
                         <p className="text-[10px] text-gray-400 uppercase tracking-wide">Progress</p>
-                        <p className="text-sm font-semibold text-cyan-600">{completedModules.length}/3</p>
+                        <p className="text-sm font-semibold text-cyan-600">{completedModules.length}/{modules.length}</p>
                     </div>
                     <div className="w-9 h-9 bg-cyan-100 rounded-md flex items-center justify-center">
                         <FaCheckCircle className="text-cyan-600" size={14} />
@@ -160,7 +160,8 @@ export default function StudentExams() {
                 {modules.map((mod) => {
                     const isCompleted =
                         completedModules.includes(mod.id) ||
-                        completedModules.includes(mod.id.toUpperCase());
+                        completedModules.includes(mod.id.toUpperCase()) ||
+                        completedModules.some(m => m.startsWith(`${mod.id}:`));
 
                     return (
                         <div

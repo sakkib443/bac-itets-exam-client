@@ -485,7 +485,8 @@ export default function StudentResults() {
         completedModules = []
     } = studentData || {};
 
-    const isAllCompleted = completedModules.length >= 3;
+    const totalExpectedModules = 3; // base module count
+    const isAllCompleted = completedModules.length >= totalExpectedModules;
     const hasStartedExam = completedModules.length > 0;
 
     // Check if today is exam day
@@ -660,12 +661,12 @@ export default function StudentResults() {
                         <div className="bg-gray-50 border border-gray-200 rounded-md p-4 mb-6">
                             <div className="flex justify-between text-sm mb-2">
                                 <span className="text-gray-500">Progress</span>
-                                <span className="text-gray-700 font-medium">{completedModules.length}/3 completed</span>
+                                <span className="text-gray-700 font-medium">{completedModules.length}/{totalExpectedModules} completed</span>
                             </div>
                             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                                 <div
                                     className="h-full bg-blue-600 rounded-full transition-all"
-                                    style={{ width: `${(completedModules.length / 3) * 100}%` }}
+                                    style={{ width: `${(completedModules.length / totalExpectedModules) * 100}%` }}
                                 />
                             </div>
                         </div>
