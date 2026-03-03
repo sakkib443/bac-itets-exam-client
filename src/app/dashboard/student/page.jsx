@@ -278,27 +278,84 @@ export default function StudentDashboard() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
-                            <ScoreCard
-                                title="Listening"
-                                icon={FaHeadphones}
-                                band={scores?.listening?.band}
-                                raw={scores?.listening?.raw}
-                                total={40}
-                            />
-                            <ScoreCard
-                                title="Reading"
-                                icon={FaBook}
-                                band={scores?.reading?.band}
-                                raw={scores?.reading?.raw}
-                                total={40}
-                            />
-                            <ScoreCard
-                                title="Writing"
-                                icon={FaPen}
-                                band={scores?.writing?.overallBand}
-                            />
-                        </div>
+                        {/* Full Set Grouped Scores */}
+                        {(() => {
+                            const assignedSets = studentData.assignedSets || {};
+                            const fullSets = assignedSets.fullSets && assignedSets.fullSets.length > 0
+                                ? assignedSets.fullSets
+                                : (assignedSets.listeningSetNumber || assignedSets.readingSetNumber || assignedSets.writingSetNumber)
+                                    ? [{
+                                        label: "Full Set 1",
+                                        listeningSetNumber: assignedSets.listeningSetNumber,
+                                        readingSetNumber: assignedSets.readingSetNumber,
+                                        writingSetNumber: assignedSets.writingSetNumber,
+                                    }]
+                                    : [];
+                            const extraSets = assignedSets.extraSets || [];
+
+                            const getScore = (moduleId, setNum) => {
+                                const perSet = scores?.[`${moduleId}_${setNum}`] || null;
+                                return perSet || scores?.[moduleId] || {};
+                            };
+
+                            return (
+                                <div className="space-y-4">
+                                    {fullSets.map((fs, idx) => {
+                                        const lScore = getScore('listening', fs.listeningSetNumber);
+                                        const rScore = getScore('reading', fs.readingSetNumber);
+                                        const wScore = getScore('writing', fs.writingSetNumber);
+                                        const bands = [lScore?.band || 0, rScore?.band || 0, wScore?.overallBand || 0].filter(b => b > 0);
+                                        const fsOverall = bands.length > 0 ? Math.round((bands.reduce((a, b) => a + b, 0) / bands.length) * 2) / 2 : 0;
+
+                                        return (
+                                            <div key={idx}>
+                                                {fullSets.length > 1 && (
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                                                        <span className="text-xs font-bold text-gray-700">{fs.label || `Full Set ${idx + 1}`}</span>
+                                                        {fsOverall > 0 && (
+                                                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">
+                                                                Overall: {fsOverall}
+                                                            </span>
+                                                        )}
+                                                        <div className="h-px flex-1 bg-gray-200"></div>
+                                                    </div>
+                                                )}
+                                                <div className="grid grid-cols-3 gap-3">
+                                                    {fs.listeningSetNumber && (
+                                                        <ScoreCard title="Listening" icon={FaHeadphones} band={lScore?.band} raw={lScore?.raw || lScore?.correctAnswers} total={40} />
+                                                    )}
+                                                    {fs.readingSetNumber && (
+                                                        <ScoreCard title="Reading" icon={FaBook} band={rScore?.band} raw={rScore?.raw || rScore?.correctAnswers} total={40} />
+                                                    )}
+                                                    {fs.writingSetNumber && (
+                                                        <ScoreCard title="Writing" icon={FaPen} band={wScore?.overallBand} />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {extraSets.length > 0 && (
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="w-2 h-2 rounded-full bg-orange-400"></div>
+                                                <span className="text-xs font-bold text-gray-700">Extra Exams</span>
+                                                <div className="h-px flex-1 bg-gray-200"></div>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                {extraSets.map((es, idx) => {
+                                                    const eScore = getScore(es.module, es.setNumber);
+                                                    return es.module === 'writing'
+                                                        ? <ScoreCard key={idx} title={`Writing`} icon={FaPen} band={eScore?.overallBand} />
+                                                        : <ScoreCard key={idx} title={es.module === 'listening' ? 'Listening' : 'Reading'} icon={es.module === 'listening' ? FaHeadphones : FaBook} band={eScore?.band} raw={eScore?.raw || eScore?.correctAnswers} total={40} />;
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                 ) : isAllCompleted ? (
                     /* Exam Completed but Results Not Published - Pending */
