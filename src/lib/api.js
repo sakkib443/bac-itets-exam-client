@@ -560,6 +560,30 @@ export const statsAPI = {
     },
 };
 
+// ================== USERS API (Super Admin) ==================
+export const usersAPI = {
+    getAll: async () => {
+        return await apiRequest("/v1/users");
+    },
+    create: async (userData) => {
+        return await apiRequest("/v1/users", {
+            method: "POST",
+            body: JSON.stringify(userData),
+        });
+    },
+    delete: async (id) => {
+        return await apiRequest(`/v1/users/${id}`, {
+            method: "DELETE",
+        });
+    },
+    updateRole: async (id, role) => {
+        return await apiRequest(`/v1/users/${id}/role`, {
+            method: "PATCH",
+            body: JSON.stringify({ role }),
+        });
+    },
+};
+
 export default {
     auth: authAPI,
     students: studentsAPI,
@@ -571,4 +595,5 @@ export default {
     examSessions: examSessionsAPI,
     upload: uploadAPI,
     stats: statsAPI,
+    users: usersAPI,
 };

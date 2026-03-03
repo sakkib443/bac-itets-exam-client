@@ -104,7 +104,7 @@ function AdminLayoutContent({ children }) {
             }
 
             const user = JSON.parse(userStr);
-            if (user.role !== "admin") {
+            if (user.role !== "admin" && user.role !== "super-admin") {
                 router.replace("/dashboard/student");
                 return;
             }
