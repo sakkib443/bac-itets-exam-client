@@ -302,146 +302,170 @@ export default function ExamSelectionPage() {
                             </div>
                         </div>
 
-                        {/* Full Exam Button — compact */}
-                        <div
-                            onClick={handleStartFullExam}
-                            className="bg-cyan-50 border-2 border-cyan-200 rounded-lg p-4 mb-5 cursor-pointer hover:border-cyan-400 transition-colors"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-cyan-600 rounded-lg flex items-center justify-center text-white">
-                                        <FaLayerGroup className="text-lg" />
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <h2 className="text-base font-bold text-gray-800">Complete IELTS Exam</h2>
-                                            <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-medium">Recommended</span>
-                                        </div>
-                                        <p className="text-gray-500 text-xs">Listening → Reading → Writing</p>
-                                    </div>
-                                </div>
-                                <button className="flex items-center gap-2 bg-cyan-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-cyan-700 cursor-pointer">
-                                    <FaPlay className="text-xs" /> Start <FaArrowRight className="text-xs" />
-                                </button>
-                            </div>
-                        </div>
+                        {/* ═══ Full Set Grouped Sections ═══ */}
+                        {(() => {
+                            const assignedSets = session?.assignedSets || {};
+                            const colorMap = {
+                                listening: { bg: 'bg-cyan-100', text: 'text-cyan-600', btn: 'bg-red-600 hover:bg-red-700', icon: <FaHeadphones /> },
+                                reading: { bg: 'bg-blue-100', text: 'text-blue-600', btn: 'bg-red-600 hover:bg-red-700', icon: <FaBook /> },
+                                writing: { bg: 'bg-emerald-100', text: 'text-emerald-600', btn: 'bg-red-600 hover:bg-red-700', icon: <FaPen /> },
+                            };
+                            const moduleInfo = {
+                                listening: { name: 'Listening', duration: 40, questions: 40, details: '4 recordings' },
+                                reading: { name: 'Reading', duration: 60, questions: 40, details: '3 passages' },
+                                writing: { name: 'Writing', duration: 60, questions: 2, details: 'Task 1 & 2' },
+                            };
 
-                        {/* Divider */}
-                        <div className="flex items-center gap-3 mb-5">
-                            <div className="flex-1 h-px bg-gray-200"></div>
-                            <span className="text-gray-400 text-[10px] uppercase tracking-wider">OR INDIVIDUAL SECTIONS</span>
-                            <div className="flex-1 h-px bg-gray-200"></div>
-                        </div>
+                            // Build Full Sets
+                            const fullSets = assignedSets.fullSets && assignedSets.fullSets.length > 0
+                                ? assignedSets.fullSets
+                                : (assignedSets.listeningSetNumber || assignedSets.readingSetNumber || assignedSets.writingSetNumber)
+                                    ? [{
+                                        label: "Full Set 1",
+                                        listeningSetNumber: assignedSets.listeningSetNumber,
+                                        readingSetNumber: assignedSets.readingSetNumber,
+                                        writingSetNumber: assignedSets.writingSetNumber,
+                                    }]
+                                    : [];
+                            const extraSets = assignedSets.extraSets || [];
 
-                        {/* ═══ Module Cards — One per Set ═══ */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                            {examModules.flatMap((module) => {
-                                const isFullyCompleted = completedModules.includes(module.id);
-                                const colorMap = {
-                                    cyan: { bg: 'bg-cyan-100', text: 'text-cyan-600', btn: 'bg-cyan-600 hover:bg-cyan-700', border: 'border-cyan-300', light: 'bg-cyan-50' },
-                                    blue: { bg: 'bg-blue-100', text: 'text-blue-600', btn: 'bg-blue-600 hover:bg-blue-700', border: 'border-blue-300', light: 'bg-blue-50' },
-                                    green: { bg: 'bg-green-100', text: 'text-green-600', btn: 'bg-green-600 hover:bg-green-700', border: 'border-green-300', light: 'bg-green-50' },
-                                };
-                                const c = colorMap[module.color] || colorMap.cyan;
+                            // Helper: is module:set completed
+                            const isSetDone = (moduleId, setNum) => {
+                                return completedModules.includes(`${moduleId}:${setNum}`) ||
+                                    completedModules.includes(moduleId) ||
+                                    completedModules.includes(moduleId.toUpperCase());
+                            };
 
-                                // If no sets assigned, show single disabled card
-                                if (module.sets.length === 0) {
-                                    return [(
-                                        <div key={module.id} className="bg-white border border-gray-100 rounded-xl p-4 opacity-50">
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <div className={`w-10 h-10 ${c.bg} ${c.text} rounded-lg flex items-center justify-center text-lg`}>
-                                                    {module.icon}
-                                                </div>
-                                                <h3 className="text-sm font-bold text-gray-800">{module.name}</h3>
-                                            </div>
-                                            <div className="w-full flex items-center justify-center gap-1.5 bg-gray-100 text-gray-400 py-2 rounded-lg text-xs font-medium">
-                                                Not Assigned
-                                            </div>
-                                        </div>
-                                    )];
-                                }
+                            // Check if entire Full Set is complete
+                            const isFullSetDone = (fs) => {
+                                const lDone = !fs.listeningSetNumber || isSetDone('listening', fs.listeningSetNumber);
+                                const rDone = !fs.readingSetNumber || isSetDone('reading', fs.readingSetNumber);
+                                const wDone = !fs.writingSetNumber || isSetDone('writing', fs.writingSetNumber);
+                                return lDone && rDone && wDone;
+                            };
 
-                                // If module fully completed (old format), show single done card
-                                if (isFullyCompleted && module.sets.length <= 1) {
-                                    return [(
-                                        <div key={module.id} className="bg-green-50/60 border border-green-200 rounded-xl p-4 relative">
-                                            <div className="absolute top-2 right-2 flex items-center gap-1 bg-green-500 text-white px-2 py-0.5 rounded-full text-[10px] font-medium">
+                            // Render a single module card
+                            const renderCard = (moduleId, setNum) => {
+                                const c = colorMap[moduleId];
+                                const info = moduleInfo[moduleId];
+                                if (!c || !info) return null;
+                                const completed = isSetDone(moduleId, setNum);
+
+                                return (
+                                    <div key={`${moduleId}-${setNum}`}
+                                        className={`bg-white border rounded-xl p-4 transition-all ${completed
+                                            ? "border-green-200 bg-green-50/50" : "border-gray-200 hover:border-gray-300 hover:shadow-md"}`}>
+                                        {completed && (
+                                            <div className="flex items-center gap-1 bg-green-500 text-white px-2 py-0.5 rounded-full text-[10px] font-medium w-fit mb-2 ml-auto">
                                                 <FaCheckCircle className="text-[8px]" /> Done
                                             </div>
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <div className="w-10 h-10 bg-green-100 text-green-600 rounded-lg flex items-center justify-center text-lg">
-                                                    <FaCheckCircle />
-                                                </div>
-                                                <h3 className="text-sm font-bold text-gray-800">{module.name} Exam</h3>
+                                        )}
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className={`w-10 h-10 ${completed ? 'bg-green-100 text-green-600' : `${c.bg} ${c.text}`} rounded-lg flex items-center justify-center text-lg flex-shrink-0`}>
+                                                {completed ? <FaCheckCircle /> : c.icon}
                                             </div>
+                                            <div className="min-w-0">
+                                                <h3 className="text-sm font-bold text-gray-800 leading-tight">{info.name}</h3>
+                                                <p className="text-gray-400 text-xs">{info.details}</p>
+                                            </div>
+                                        </div>
+                                        {!completed && (
+                                            <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
+                                                <span className="flex items-center gap-1"><FaClock className="text-gray-400" /> {info.duration} min</span>
+                                                <span className="flex items-center gap-1"><FaQuestionCircle className="text-gray-400" /> {info.questions}Q</span>
+                                            </div>
+                                        )}
+                                        {completed ? (
                                             <div className="w-full flex items-center justify-center gap-1.5 bg-green-100 text-green-700 py-2 rounded-lg text-xs font-medium">
                                                 <FaLock className="text-[9px]" /> Completed
                                             </div>
-                                        </div>
-                                    )];
-                                }
+                                        ) : (
+                                            <button onClick={() => handleStartModule(moduleId, setNum)}
+                                                className={`w-full flex items-center justify-center gap-2 ${c.btn} text-white py-2 rounded-lg text-xs font-bold transition-all cursor-pointer group`}>
+                                                <FaPlay className="text-[9px] group-hover:scale-110 transition-transform" />
+                                                Start {info.name}
+                                                <FaArrowRight className="text-[9px] group-hover:translate-x-0.5 transition-transform" />
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            };
 
-                                // Generate one card per set
-                                return module.sets.map((setNum, idx) => {
-                                    const examLabel = module.sets.length > 1
-                                        ? `${module.name} Exam ${idx + 1}`
-                                        : `${module.name} Exam`;
-                                    const isSetCompleted = completedModules.includes(`${module.id}:${setNum}`) || (module.sets.length === 1 && isFullyCompleted);
+                            // Find first incomplete module in a Full Set for "Start Full Set"
+                            const getNextModule = (fs) => {
+                                if (fs.listeningSetNumber && !isSetDone('listening', fs.listeningSetNumber)) return { id: 'listening', set: fs.listeningSetNumber };
+                                if (fs.readingSetNumber && !isSetDone('reading', fs.readingSetNumber)) return { id: 'reading', set: fs.readingSetNumber };
+                                if (fs.writingSetNumber && !isSetDone('writing', fs.writingSetNumber)) return { id: 'writing', set: fs.writingSetNumber };
+                                return null;
+                            };
 
-                                    return (
-                                        <div
-                                            key={`${module.id}-${idx}`}
-                                            className={`bg-white border rounded-xl p-4 transition-all ${isSetCompleted
-                                                ? "border-green-200 bg-green-50/50"
-                                                : `border-gray-200 hover:border-gray-300 hover:shadow-md`
-                                                }`}
-                                        >
-                                            {/* Completed badge */}
-                                            {isSetCompleted && (
-                                                <div className="flex items-center gap-1 bg-green-500 text-white px-2 py-0.5 rounded-full text-[10px] font-medium w-fit mb-2 ml-auto">
-                                                    <FaCheckCircle className="text-[8px]" /> Done
+                            return (
+                                <div className="space-y-10">
+                                    {fullSets.map((fs, idx) => {
+                                        const fsDone = isFullSetDone(fs);
+                                        const nextMod = getNextModule(fs);
+
+                                        return (
+                                            <div key={idx}>
+                                                {/* Full Set Header */}
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <div className={`w-2.5 h-2.5 rounded-full ${fsDone ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                                    <h2 className="text-sm font-bold text-gray-800">{fs.label || `Full Set ${idx + 1}`}</h2>
+                                                    {fsDone && (
+                                                        <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold flex items-center gap-1">
+                                                            <FaCheckCircle className="text-[8px]" /> All Done
+                                                        </span>
+                                                    )}
+                                                    <div className="h-px flex-1 bg-gray-200"></div>
                                                 </div>
-                                            )}
 
-                                            {/* Icon + Label */}
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <div className={`w-10 h-10 ${isSetCompleted ? 'bg-green-100 text-green-600' : `${c.bg} ${c.text}`} rounded-lg flex items-center justify-center text-lg flex-shrink-0`}>
-                                                    {isSetCompleted ? <FaCheckCircle /> : module.icon}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <h3 className="text-sm font-bold text-gray-800 leading-tight">{examLabel}</h3>
-                                                    <p className="text-gray-400 text-xs">{module.details}</p>
+                                                {/* Start Full Set Banner */}
+                                                {!fsDone && nextMod && (
+                                                    <div
+                                                        className="bg-red-50 border-2 border-red-200 rounded-lg p-3.5 mb-3 transition-colors">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-9 h-9 bg-red-600 rounded-lg flex items-center justify-center text-white">
+                                                                    <FaLayerGroup />
+                                                                </div>
+                                                                <div>
+                                                                    <h3 className="text-sm font-bold text-gray-800">Start Full Set Exam</h3>
+                                                                    <p className="text-gray-500 text-[11px]">Listening → Reading → Writing</p>
+                                                                </div>
+                                                            </div>
+                                                            <button onClick={() => handleStartModule(nextMod.id, nextMod.set)} className="flex items-center gap-1.5 bg-red-600 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold hover:bg-red-700 cursor-pointer">
+                                                                <FaPlay className="text-[9px]" /> Start <FaArrowRight className="text-[9px]" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Module Cards for this Full Set */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                                    {fs.listeningSetNumber && renderCard('listening', fs.listeningSetNumber)}
+                                                    {fs.readingSetNumber && renderCard('reading', fs.readingSetNumber)}
+                                                    {fs.writingSetNumber && renderCard('writing', fs.writingSetNumber)}
                                                 </div>
                                             </div>
+                                        );
+                                    })}
 
-                                            {/* Stats */}
-                                            {!isSetCompleted && (
-                                                <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
-                                                    <span className="flex items-center gap-1"><FaClock className="text-gray-400" /> {module.duration} min</span>
-                                                    <span className="flex items-center gap-1"><FaQuestionCircle className="text-gray-400" /> {module.questions}Q</span>
-                                                </div>
-                                            )}
-
-                                            {/* Action */}
-                                            {isSetCompleted ? (
-                                                <div className="w-full flex items-center justify-center gap-1.5 bg-green-100 text-green-700 py-2 rounded-lg text-xs font-medium">
-                                                    <FaLock className="text-[9px]" /> Completed
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={() => handleStartModule(module.id, setNum)}
-                                                    className={`w-full flex items-center justify-center gap-2 ${c.btn} text-white py-2 rounded-lg text-xs font-bold transition-all cursor-pointer group`}
-                                                >
-                                                    <FaPlay className="text-[9px] group-hover:scale-110 transition-transform" />
-                                                    Start {module.name}
-                                                    <FaArrowRight className="text-[9px] group-hover:translate-x-0.5 transition-transform" />
-                                                </button>
-                                            )}
+                                    {/* Extra Individual Parts */}
+                                    {extraSets.length > 0 && (
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <div className="w-2.5 h-2.5 rounded-full bg-orange-400"></div>
+                                                <h2 className="text-sm font-bold text-gray-800">Extra Exams</h2>
+                                                <div className="h-px flex-1 bg-gray-200"></div>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                                {extraSets.map((es, idx) => renderCard(es.module, es.setNumber))}
+                                            </div>
                                         </div>
-                                    );
-                                });
-                            })}
-                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </>
                 )}
             </div>

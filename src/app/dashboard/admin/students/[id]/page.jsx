@@ -984,150 +984,146 @@ function StudentContent() {
                 </div>
             )}
 
-            {/* Module Score Cards - Dynamic Per-Set */}
+            {/* Module Score Cards - Full Set Grouped */}
             {(() => {
-                const moduleConfigs = [
-                    { id: 'listening', title: 'Listening', icon: FaHeadphones, color: 'blue' },
-                    { id: 'reading', title: 'Reading', icon: FaBook, color: 'green' },
-                    { id: 'writing', title: 'Writing', icon: FaPen, color: 'purple' },
-                ];
-
-                // Build per-set cards
-                const allCards = [];
+                const moduleConfigs = {
+                    listening: { title: 'Listening', icon: FaHeadphones, color: 'blue' },
+                    reading: { title: 'Reading', icon: FaBook, color: 'green' },
+                    writing: { title: 'Writing', icon: FaPen, color: 'purple' },
+                };
                 const scoresObj = student.scores || {};
+                const assignedSets = student.assignedSets || {};
 
-                moduleConfigs.forEach((mod) => {
-                    const setNumbersKey = `${mod.id}SetNumbers`;
-                    const singleSetKey = `${mod.id}SetNumber`;
-                    const assignedSets = student.assignedSets || {};
+                // Build Full Sets from assignedSets or fallback to legacy
+                const fullSets = assignedSets.fullSets && assignedSets.fullSets.length > 0
+                    ? assignedSets.fullSets
+                    : (assignedSets.listeningSetNumber || assignedSets.readingSetNumber || assignedSets.writingSetNumber)
+                        ? [{
+                            label: "Full Set 1",
+                            listeningSetNumber: assignedSets.listeningSetNumber,
+                            readingSetNumber: assignedSets.readingSetNumber,
+                            writingSetNumber: assignedSets.writingSetNumber,
+                        }]
+                        : [];
+                const extraSetsData = assignedSets.extraSets || [];
 
-                    // Get array of set numbers
-                    let setNumbers = assignedSets[setNumbersKey] && assignedSets[setNumbersKey].length > 0
-                        ? assignedSets[setNumbersKey]
-                        : (assignedSets[singleSetKey] ? [assignedSets[singleSetKey]] : []);
-
-                    if (setNumbers.length <= 1) {
-                        // Single set - show standard card
-                        const isCompleted = completedModules.some(m => m.toLowerCase() === mod.id || m.toLowerCase().startsWith(`${mod.id}:`));
-                        let band, subInfo;
-                        if (mod.id === 'writing') {
-                            band = scoresObj.writing?.overallBand;
-                            subInfo = `Task 1: ${scoresObj.writing?.task1Band || 0} | Task 2: ${scoresObj.writing?.task2Band || 0}`;
-                        } else {
-                            band = scoresObj[mod.id]?.band;
-                            subInfo = `Correct: ${scoresObj[mod.id]?.correctAnswers || 0}/40`;
-                        }
-                        allCards.push({
-                            key: mod.id,
-                            icon: mod.icon,
-                            title: mod.title,
-                            band,
-                            subInfo,
-                            color: mod.color,
-                            isCompleted,
-                            setNumber: setNumbers[0] || null,
-                            isMultiSet: false,
-                            moduleId: mod.id,
-                        });
-                    } else {
-                        // Multiple sets - one card per set
-                        setNumbers.forEach((setNum, idx) => {
-                            const setKey = `${mod.id}_${setNum}`;
-                            const completionKey = `${mod.id}:${setNum}`;
-                            const isCompleted = completedModules.some(m => m === completionKey || m.toLowerCase() === completionKey);
-                            const perSetScore = scoresObj[setKey] || null;
-                            let band, subInfo;
-
-                            if (mod.id === 'writing') {
-                                band = perSetScore?.overallBand || (idx === setNumbers.length - 1 ? scoresObj.writing?.overallBand : undefined);
-                                subInfo = perSetScore
-                                    ? `Task 1: ${perSetScore.task1Band || 0} | Task 2: ${perSetScore.task2Band || 0}`
-                                    : (idx === setNumbers.length - 1 ? `Task 1: ${scoresObj.writing?.task1Band || 0} | Task 2: ${scoresObj.writing?.task2Band || 0}` : 'Not graded');
-                            } else {
-                                band = perSetScore?.band || (idx === setNumbers.length - 1 ? scoresObj[mod.id]?.band : undefined);
-                                subInfo = perSetScore
-                                    ? `Correct: ${perSetScore.correctAnswers || 0}/${perSetScore.totalQuestions || 40}`
-                                    : (idx === setNumbers.length - 1 ? `Correct: ${scoresObj[mod.id]?.correctAnswers || 0}/40` : 'Not graded');
-                            }
-
-                            allCards.push({
-                                key: `${mod.id}_set_${setNum}`,
-                                icon: mod.icon,
-                                title: `${mod.title} — Exam ${idx + 1}`,
-                                band,
-                                subInfo,
-                                color: mod.color,
-                                isCompleted,
-                                setNumber: setNum,
-                                setLabel: `Set #${setNum}`,
-                                isMultiSet: true,
-                                moduleId: mod.id,
-                                setIndex: idx + 1,
-                            });
-                        });
+                // Helper: get per-set score for a module
+                const getModuleScore = (moduleId, setNum) => {
+                    const setKey = `${moduleId}_${setNum}`;
+                    const perSet = scoresObj[setKey] || null;
+                    if (moduleId === 'writing') {
+                        const src = perSet || scoresObj.writing || {};
+                        return { band: src.overallBand || 0, subInfo: `Task 1: ${src.task1Band || 0} | Task 2: ${src.task2Band || 0}` };
                     }
-                });
+                    const src = perSet || scoresObj[moduleId] || {};
+                    return { band: src.band || 0, subInfo: `Correct: ${src.correctAnswers || 0}/${src.totalQuestions || 40}` };
+                };
+
+                // Render a single card
+                const renderCard = (moduleId, setNum, label) => {
+                    const mod = moduleConfigs[moduleId];
+                    if (!mod) return null;
+                    const { band, subInfo } = getModuleScore(moduleId, setNum);
+                    const completionKey = `${moduleId}:${setNum}`;
+                    const isCompleted = completedModules.some(m =>
+                        m === completionKey || m.toLowerCase() === moduleId || m.toLowerCase() === moduleId.toUpperCase()
+                    );
+
+                    return (
+                        <div key={`${moduleId}-${setNum}`} className={`relative p-5 rounded-md border ${mod.color === 'blue' ? 'bg-blue-50 border-blue-100 hover:border-blue-200' :
+                            mod.color === 'green' ? 'bg-emerald-50 border-emerald-100 hover:border-emerald-200' :
+                                'bg-violet-50 border-violet-100 hover:border-violet-200'
+                            } transition-all`}>
+                            {isCompleted && (
+                                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                                    <FaCheckCircle className="text-white text-[10px]" />
+                                </div>
+                            )}
+                            <div className="flex items-start gap-3 mb-3">
+                                <div className={`w-10 h-10 rounded-md flex items-center justify-center ${mod.color === 'blue' ? 'bg-blue-500 text-white' :
+                                    mod.color === 'green' ? 'bg-emerald-500 text-white' : 'bg-violet-500 text-white'}`}>
+                                    <mod.icon className="text-base" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-sm font-semibold text-slate-800 truncate">{label || mod.title}</h3>
+                                    <p className="text-xs text-slate-500">{subInfo}</p>
+                                </div>
+                                <BandScoreCircle score={band} size="small" />
+                            </div>
+                            <div className="flex gap-1.5">
+                                <button onClick={() => handleViewAnswers(moduleId)}
+                                    className="flex-1 h-8 flex items-center justify-center gap-1 bg-white border border-slate-200 text-slate-600 rounded-md text-xs font-medium hover:bg-slate-50 transition-all cursor-pointer">
+                                    <FaEye className="text-slate-400 text-[10px]" /> View
+                                </button>
+                                <button onClick={() => setEditModal({ show: true, module: moduleId, setNumber: setNum })}
+                                    className="flex-1 h-8 flex items-center justify-center gap-1 bg-slate-800 text-white rounded-md text-xs font-medium hover:bg-slate-900 transition-all cursor-pointer">
+                                    <FaEdit className="text-[10px]" /> Edit
+                                </button>
+                                {isCompleted && (
+                                    <button onClick={() => handleResetModule(moduleId)}
+                                        disabled={resetting === moduleId}
+                                        className="h-8 px-2.5 flex items-center justify-center bg-rose-500 text-white rounded-md text-xs font-medium hover:bg-rose-600 transition-all disabled:opacity-50 cursor-pointer"
+                                        title="Reset module">
+                                        {resetting === moduleId ? <FaSpinner className="animate-spin text-[10px]" /> : <FaRedo className="text-[10px]" />}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    );
+                };
+
+                // Calculate per-Full-Set overall band
+                const calcFullSetOverall = (fs) => {
+                    const l = getModuleScore('listening', fs.listeningSetNumber).band;
+                    const r = getModuleScore('reading', fs.readingSetNumber).band;
+                    const w = getModuleScore('writing', fs.writingSetNumber).band;
+                    const bands = [l, r, w].filter(b => b > 0);
+                    if (bands.length === 0) return 0;
+                    const avg = bands.reduce((a, b) => a + b, 0) / bands.length;
+                    return Math.round(avg * 2) / 2;
+                };
 
                 return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                        {allCards.map((card) => (
-                            <div key={card.key} className={`relative p-5 rounded-md border ${card.color === 'blue' ? 'bg-blue-50 border-blue-100 hover:border-blue-200' :
-                                card.color === 'green' ? 'bg-emerald-50 border-emerald-100 hover:border-emerald-200' :
-                                    card.color === 'purple' ? 'bg-violet-50 border-violet-100 hover:border-violet-200' :
-                                        'bg-orange-50 border-orange-100 hover:border-orange-200'
-                                } transition-all`}>
-                                {card.isCompleted && (
-                                    <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
-                                        <FaCheckCircle className="text-white text-[10px]" />
-                                    </div>
-                                )}
-
-                                <div className="flex items-start gap-3 mb-3">
-                                    <div className={`w-10 h-10 rounded-md flex items-center justify-center ${card.color === 'blue' ? 'bg-blue-500 text-white' :
-                                        card.color === 'green' ? 'bg-emerald-500 text-white' :
-                                            card.color === 'purple' ? 'bg-violet-500 text-white' :
-                                                'bg-orange-500 text-white'
-                                        }`}>
-                                        <card.icon className="text-base" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="text-sm font-semibold text-slate-800 truncate">{card.title}</h3>
-                                        <p className="text-xs text-slate-500">{card.subInfo}</p>
-                                        {card.isMultiSet && (
-                                            <span className="inline-block mt-1 px-2 py-0.5 bg-white/60 border border-slate-200 rounded text-[10px] font-bold text-slate-600">
-                                                {card.setLabel}
+                    <div className="mb-6 space-y-6">
+                        {/* Full Sets */}
+                        {fullSets.map((fs, idx) => {
+                            const fsOverall = calcFullSetOverall(fs);
+                            return (
+                                <div key={idx}>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                                        <h2 className="text-sm font-bold text-slate-700">{fs.label || `Full Set ${idx + 1}`}</h2>
+                                        {fsOverall > 0 && (
+                                            <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-bold">
+                                                Overall: {fsOverall}
                                             </span>
                                         )}
+                                        <div className="h-px flex-1 bg-slate-200"></div>
                                     </div>
-                                    <BandScoreCircle score={card.band} size="small" />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {fs.listeningSetNumber && renderCard('listening', fs.listeningSetNumber, 'Listening')}
+                                        {fs.readingSetNumber && renderCard('reading', fs.readingSetNumber, 'Reading')}
+                                        {fs.writingSetNumber && renderCard('writing', fs.writingSetNumber, 'Writing')}
+                                    </div>
                                 </div>
+                            );
+                        })}
 
-                                <div className="flex gap-1.5">
-                                    <button
-                                        onClick={() => handleViewAnswers(card.title.split(' — ')[0])}
-                                        className="flex-1 h-8 flex items-center justify-center gap-1 bg-white border border-slate-200 text-slate-600 rounded-md text-xs font-medium hover:bg-slate-50 transition-all cursor-pointer"
-                                    >
-                                        <FaEye className="text-slate-400 text-[10px]" /> View
-                                    </button>
-                                    <button
-                                        onClick={() => setEditModal({ show: true, module: card.moduleId, setNumber: card.setNumber })}
-                                        className="flex-1 h-8 flex items-center justify-center gap-1 bg-slate-800 text-white rounded-md text-xs font-medium hover:bg-slate-900 transition-all cursor-pointer"
-                                    >
-                                        <FaEdit className="text-[10px]" /> Edit
-                                    </button>
-                                    {card.isCompleted && (
-                                        <button
-                                            onClick={() => handleResetModule(card.moduleId)}
-                                            disabled={resetting === card.moduleId}
-                                            className="h-8 px-2.5 flex items-center justify-center bg-rose-500 text-white rounded-md text-xs font-medium hover:bg-rose-600 transition-all disabled:opacity-50 cursor-pointer"
-                                            title="Reset module"
-                                        >
-                                            {resetting === card.moduleId ? <FaSpinner className="animate-spin text-[10px]" /> : <FaRedo className="text-[10px]" />}
-                                        </button>
+                        {/* Extra Parts */}
+                        {extraSetsData.length > 0 && (
+                            <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-2 h-2 rounded-full bg-orange-400"></div>
+                                    <h2 className="text-sm font-bold text-slate-700">Extra Exams</h2>
+                                    <div className="h-px flex-1 bg-slate-200"></div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {extraSetsData.map((es, idx) =>
+                                        renderCard(es.module, es.setNumber, `${moduleConfigs[es.module]?.title || es.module} (Extra)`)
                                     )}
                                 </div>
                             </div>
-                        ))}
+                        )}
                     </div>
                 );
             })()}

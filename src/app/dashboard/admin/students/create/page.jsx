@@ -204,11 +204,10 @@ export default function CreateStudentPage() {
         paymentReference: "",
     });
 
-    // Multi-set selections (arrays of testNumbers)
-    const [listeningSelectedSets, setListeningSelectedSets] = useState([]);
-    const [readingSelectedSets, setReadingSelectedSets] = useState([]);
-    const [writingSelectedSets, setWritingSelectedSets] = useState([]);
-    const [speakingSelectedSets, setSpeakingSelectedSets] = useState([]);
+    // Full Sets state (each full set = L+R+W)
+    const [fullSets, setFullSets] = useState([{ listeningSetNumber: '', readingSetNumber: '', writingSetNumber: '' }]);
+    // Extra individual parts
+    const [extraSets, setExtraSets] = useState([]);
 
     useEffect(() => {
         fetchQuestionSets();
@@ -279,16 +278,22 @@ export default function CreateStudentPage() {
             const studentData = {
                 ...formData,
                 examDate: new Date(formData.examDate).toISOString(),
-                // Send first set as primary (backward compatible)
-                listeningSetNumber: listeningSelectedSets[0] || undefined,
-                readingSetNumber: readingSelectedSets[0] || undefined,
-                writingSetNumber: writingSelectedSets[0] || undefined,
-                speakingSetNumber: speakingSelectedSets[0] || undefined,
-                // Send all sets as arrays (new multi-set format)
-                listeningSetNumbers: listeningSelectedSets.length > 0 ? listeningSelectedSets : undefined,
-                readingSetNumbers: readingSelectedSets.length > 0 ? readingSelectedSets : undefined,
-                writingSetNumbers: writingSelectedSets.length > 0 ? writingSelectedSets : undefined,
-                speakingSetNumbers: speakingSelectedSets.length > 0 ? speakingSelectedSets : undefined,
+                // Send Full Sets
+                fullSets: fullSets
+                    .filter(fs => fs.listeningSetNumber || fs.readingSetNumber || fs.writingSetNumber)
+                    .map((fs, idx) => ({
+                        label: `Full Set ${idx + 1}`,
+                        listeningSetNumber: fs.listeningSetNumber ? Number(fs.listeningSetNumber) : undefined,
+                        readingSetNumber: fs.readingSetNumber ? Number(fs.readingSetNumber) : undefined,
+                        writingSetNumber: fs.writingSetNumber ? Number(fs.writingSetNumber) : undefined,
+                    })),
+                extraSets: extraSets
+                    .filter(es => es.module && es.setNumber)
+                    .map(es => ({ module: es.module, setNumber: Number(es.setNumber) })),
+                // Legacy compatibility: first full set values
+                listeningSetNumber: fullSets[0]?.listeningSetNumber ? Number(fullSets[0].listeningSetNumber) : undefined,
+                readingSetNumber: fullSets[0]?.readingSetNumber ? Number(fullSets[0].readingSetNumber) : undefined,
+                writingSetNumber: fullSets[0]?.writingSetNumber ? Number(fullSets[0].writingSetNumber) : undefined,
             };
 
             // Remove empty fields
@@ -511,49 +516,141 @@ export default function CreateStudentPage() {
                     </div>
                 </div>
 
-                {/* ═══ Question Sets Assignment — Multi-Set ═══ */}
+                {/* ═══ Full Set Assignment UI ═══ */}
                 <div className="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 className="font-semibold text-gray-800 mb-1">Assign Question Sets</h3>
+                    <h3 className="font-semibold text-gray-800 mb-1">Assign Exam Sets</h3>
                     <p className="text-sm text-gray-500 mb-5">
-                        একাধিক set assign করতে পারবেন — student প্রতিটি set আলাদাভাবে attempt করতে পারবে।
+                        Full Set = Listening + Reading + Writing একসাথে। একাধিক Full Set add করতে পারবেন।
                     </p>
 
-                    <div className="grid grid-cols-1 gap-5">
-                        <MultiSetSelector
-                            label="Listening Sets"
-                            icon={<FaHeadphones className="inline mr-1 text-purple-500" />}
-                            sets={listeningSets}
-                            selectedSets={listeningSelectedSets}
-                            onChange={setListeningSelectedSets}
-                            color="purple"
-                        />
+                    {/* Full Sets */}
+                    <div className="space-y-4 mb-6">
+                        {fullSets.map((fs, idx) => (
+                            <div key={idx} className="border border-indigo-100 bg-indigo-50/30 rounded-lg p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="text-sm font-bold text-indigo-700">Full Set {idx + 1}</h4>
+                                    {fullSets.length > 1 && (
+                                        <button type="button" onClick={() => setFullSets(fullSets.filter((_, i) => i !== idx))}
+                                            className="text-red-400 hover:text-red-600 p-1 cursor-pointer">
+                                            <FaTrash className="text-xs" />
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">🎧 Listening</label>
+                                        <select
+                                            value={fs.listeningSetNumber}
+                                            onChange={(e) => {
+                                                const updated = [...fullSets];
+                                                updated[idx] = { ...updated[idx], listeningSetNumber: e.target.value };
+                                                setFullSets(updated);
+                                            }}
+                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                                        >
+                                            <option value="">Select...</option>
+                                            {listeningSets.map(s => (
+                                                <option key={s._id} value={s.testNumber}>#{s.testNumber} - {s.title}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">📖 Reading</label>
+                                        <select
+                                            value={fs.readingSetNumber}
+                                            onChange={(e) => {
+                                                const updated = [...fullSets];
+                                                updated[idx] = { ...updated[idx], readingSetNumber: e.target.value };
+                                                setFullSets(updated);
+                                            }}
+                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                                        >
+                                            <option value="">Select...</option>
+                                            {readingSets.map(s => (
+                                                <option key={s._id} value={s.testNumber}>#{s.testNumber} - {s.title}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">✍️ Writing</label>
+                                        <select
+                                            value={fs.writingSetNumber}
+                                            onChange={(e) => {
+                                                const updated = [...fullSets];
+                                                updated[idx] = { ...updated[idx], writingSetNumber: e.target.value };
+                                                setFullSets(updated);
+                                            }}
+                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                                        >
+                                            <option value="">Select...</option>
+                                            {writingSets.map(s => (
+                                                <option key={s._id} value={s.testNumber}>#{s.testNumber} - {s.title}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
 
-                        <MultiSetSelector
-                            label="Reading Sets"
-                            icon={<FaBook className="inline mr-1 text-blue-500" />}
-                            sets={readingSets}
-                            selectedSets={readingSelectedSets}
-                            onChange={setReadingSelectedSets}
-                            color="blue"
-                        />
+                        <button
+                            type="button"
+                            onClick={() => setFullSets([...fullSets, { listeningSetNumber: '', readingSetNumber: '', writingSetNumber: '' }])}
+                            className="flex items-center gap-1.5 px-4 py-2 text-sm text-indigo-600 bg-indigo-50 border border-dashed border-indigo-200 rounded-lg hover:bg-indigo-100 cursor-pointer"
+                        >
+                            <FaPlus className="text-xs" /> Add Full Set
+                        </button>
+                    </div>
 
-                        <MultiSetSelector
-                            label="Writing Sets"
-                            icon={<FaPen className="inline mr-1 text-green-500" />}
-                            sets={writingSets}
-                            selectedSets={writingSelectedSets}
-                            onChange={setWritingSelectedSets}
-                            color="green"
-                        />
-
-                        <MultiSetSelector
-                            label="Speaking Sets"
-                            icon={<FaMicrophone className="inline mr-1 text-orange-500" />}
-                            sets={speakingSets}
-                            selectedSets={speakingSelectedSets}
-                            onChange={setSpeakingSelectedSets}
-                            color="orange"
-                        />
+                    {/* Extra Individual Parts */}
+                    <div className="border-t border-gray-200 pt-4">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3">Extra Individual Parts <span className="font-normal text-gray-400">(optional)</span></h4>
+                        {extraSets.length > 0 && (
+                            <div className="space-y-2 mb-3">
+                                {extraSets.map((es, idx) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                        <select
+                                            value={es.module}
+                                            onChange={(e) => {
+                                                const updated = [...extraSets];
+                                                updated[idx] = { ...updated[idx], module: e.target.value, setNumber: '' };
+                                                setExtraSets(updated);
+                                            }}
+                                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                                        >
+                                            <option value="">Module...</option>
+                                            <option value="listening">🎧 Listening</option>
+                                            <option value="reading">📖 Reading</option>
+                                            <option value="writing">✍️ Writing</option>
+                                        </select>
+                                        <select
+                                            value={es.setNumber}
+                                            onChange={(e) => {
+                                                const updated = [...extraSets];
+                                                updated[idx] = { ...updated[idx], setNumber: e.target.value };
+                                                setExtraSets(updated);
+                                            }}
+                                            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                                        >
+                                            <option value="">Select set...</option>
+                                            {(es.module === 'listening' ? listeningSets : es.module === 'reading' ? readingSets : es.module === 'writing' ? writingSets : []).map(s => (
+                                                <option key={s._id} value={s.testNumber}>#{s.testNumber} - {s.title}</option>
+                                            ))}
+                                        </select>
+                                        <button type="button" onClick={() => setExtraSets(extraSets.filter((_, i) => i !== idx))}
+                                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer">
+                                            <FaTrash className="text-xs" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setExtraSets([...extraSets, { module: '', setNumber: '' }])}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 bg-gray-50 border border-dashed border-gray-200 rounded-lg hover:bg-gray-100 cursor-pointer"
+                        >
+                            <FaPlus className="text-[9px]" /> Add Extra Part
+                        </button>
                     </div>
                 </div>
 

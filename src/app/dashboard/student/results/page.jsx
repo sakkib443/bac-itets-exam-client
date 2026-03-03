@@ -482,12 +482,44 @@ export default function StudentResults() {
         nameEnglish,
         examId,
         examDate,
-        completedModules = []
+        completedModules = [],
+        assignedSets = {}
     } = studentData || {};
 
     const totalExpectedModules = 3; // base module count
     const isAllCompleted = completedModules.length >= totalExpectedModules;
     const hasStartedExam = completedModules.length > 0;
+
+    // Build Full Sets from assignedSets
+    const fullSets = assignedSets.fullSets && assignedSets.fullSets.length > 0
+        ? assignedSets.fullSets
+        : (assignedSets.listeningSetNumber || assignedSets.readingSetNumber || assignedSets.writingSetNumber)
+            ? [{
+                label: "Full Set 1",
+                listeningSetNumber: assignedSets.listeningSetNumber,
+                readingSetNumber: assignedSets.readingSetNumber,
+                writingSetNumber: assignedSets.writingSetNumber,
+            }]
+            : [];
+    const extraSetsResult = assignedSets.extraSets || [];
+
+    // Get score for a module+set combo
+    const getScore = (moduleId, setNum) => {
+        const setKey = `${moduleId}_${setNum}`;
+        const perSet = scores?.[setKey] || null;
+        return perSet || scores?.[moduleId] || {};
+    };
+
+    // Calculate per-Full-Set overall
+    const calcFullSetOverall = (fs) => {
+        const lScore = getScore('listening', fs.listeningSetNumber);
+        const rScore = getScore('reading', fs.readingSetNumber);
+        const wScore = getScore('writing', fs.writingSetNumber);
+        const bands = [lScore?.band || 0, rScore?.band || 0, wScore?.overallBand || 0].filter(b => b > 0);
+        if (bands.length === 0) return 0;
+        const avg = bands.reduce((a, b) => a + b, 0) / bands.length;
+        return Math.round(avg * 2) / 2;
+    };
 
     // Check if today is exam day
     const isExamDay = () => {
@@ -556,30 +588,61 @@ export default function StudentResults() {
                         </div>
                     </div>
 
-                    {/* Module Scores */}
-                    <div className="grid md:grid-cols-3 gap-4">
-                        <ScoreCard
-                            title="Listening"
-                            icon={FaHeadphones}
-                            band={scores?.listening?.band}
-                            raw={scores?.listening?.raw}
-                            total={40}
-                        />
-                        <ScoreCard
-                            title="Reading"
-                            icon={FaBook}
-                            band={scores?.reading?.band}
-                            raw={scores?.reading?.raw}
-                            total={40}
-                        />
-                        <ScoreCard
-                            title="Writing"
-                            icon={FaPen}
-                            band={scores?.writing?.overallBand}
-                            task1={scores?.writing?.task1Band}
-                            task2={scores?.writing?.task2Band}
-                        />
-                    </div>
+                    {/* Module Scores - Full Set Grouped */}
+                    {fullSets.map((fs, idx) => {
+                        const fsOverall = calcFullSetOverall(fs);
+                        const lScore = getScore('listening', fs.listeningSetNumber);
+                        const rScore = getScore('reading', fs.readingSetNumber);
+                        const wScore = getScore('writing', fs.writingSetNumber);
+                        return (
+                            <div key={idx}>
+                                {fullSets.length > 1 && (
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                                        <h3 className="text-sm font-bold text-gray-700">{fs.label || `Full Set ${idx + 1}`}</h3>
+                                        {fsOverall > 0 && (
+                                            <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-bold">
+                                                Overall: {fsOverall}
+                                            </span>
+                                        )}
+                                        <div className="h-px flex-1 bg-gray-200"></div>
+                                    </div>
+                                )}
+                                <div className="grid md:grid-cols-3 gap-4 mb-4">
+                                    {fs.listeningSetNumber && (
+                                        <ScoreCard title="Listening" icon={FaHeadphones} band={lScore?.band} raw={lScore?.raw || lScore?.correctAnswers} total={40} />
+                                    )}
+                                    {fs.readingSetNumber && (
+                                        <ScoreCard title="Reading" icon={FaBook} band={rScore?.band} raw={rScore?.raw || rScore?.correctAnswers} total={40} />
+                                    )}
+                                    {fs.writingSetNumber && (
+                                        <ScoreCard title="Writing" icon={FaPen} band={wScore?.overallBand} task1={wScore?.task1Band} task2={wScore?.task2Band} />
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+
+                    {/* Extra Parts Results */}
+                    {extraSetsResult.length > 0 && (
+                        <div>
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="w-2 h-2 rounded-full bg-orange-400"></div>
+                                <h3 className="text-sm font-bold text-gray-700">Extra Exams</h3>
+                                <div className="h-px flex-1 bg-gray-200"></div>
+                            </div>
+                            <div className="grid md:grid-cols-3 gap-4 mb-4">
+                                {extraSetsResult.map((es, idx) => {
+                                    const eScore = getScore(es.module, es.setNumber);
+                                    const modTitle = es.module === 'listening' ? 'Listening' : es.module === 'reading' ? 'Reading' : 'Writing';
+                                    const ModIcon = es.module === 'listening' ? FaHeadphones : es.module === 'reading' ? FaBook : FaPen;
+                                    return es.module === 'writing'
+                                        ? <ScoreCard key={idx} title={`${modTitle} (Extra)`} icon={ModIcon} band={eScore?.overallBand} task1={eScore?.task1Band} task2={eScore?.task2Band} />
+                                        : <ScoreCard key={idx} title={`${modTitle} (Extra)`} icon={ModIcon} band={eScore?.band} raw={eScore?.raw || eScore?.correctAnswers} total={40} />;
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Examiner Remarks */}
                     {adminRemarks && (
