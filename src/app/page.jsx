@@ -18,7 +18,8 @@ import {
     FaWifi,
     FaTimes,
     FaExclamationCircle,
-    FaArrowRight
+    FaArrowRight,
+    FaVideo
 } from "react-icons/fa";
 import { LuGraduationCap, LuShieldCheck } from "react-icons/lu";
 import { HiOutlineDocumentText } from "react-icons/hi";
@@ -89,6 +90,7 @@ export default function HomePage() {
     const [toast, setToast] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [agreed, setAgreed] = useState(false);
+    const [showDemoVideo, setShowDemoVideo] = useState(false);
 
     // Parse error message to user-friendly format
     const parseErrorMessage = (error) => {
@@ -254,6 +256,64 @@ export default function HomePage() {
                 )}
             </AnimatePresence>
 
+            {/* Demo Video Modal */}
+            <AnimatePresence>
+                {showDemoVideo && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+                        onClick={() => setShowDemoVideo(false)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                                        <FaVideo className="text-red-500 text-sm" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-gray-800 text-sm">Exam Instruction</h3>
+                                        <p className="text-gray-400 text-[11px]">Learn how the exam works</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowDemoVideo(false)}
+                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                                >
+                                    <FaTimes />
+                                </button>
+                            </div>
+                            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                                <iframe
+                                    className="absolute inset-0 w-full h-full"
+                                    src="https://www.youtube.com/embed/3SUAfSU0VNo?autoplay=1&rel=0"
+                                    title="IELTS Exam Demo"
+                                    frameBorder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                />
+                            </div>
+                            <div className="px-5 py-3 bg-gray-50 flex items-center justify-between">
+                                <p className="text-gray-500 text-xs">Watch this video before starting your exam</p>
+                                <button
+                                    onClick={() => setShowDemoVideo(false)}
+                                    className="px-4 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-black transition-colors cursor-pointer"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Static Background Blobs */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-[#41bfb8]/10 rounded-full blur-[120px]"></div>
@@ -277,6 +337,20 @@ export default function HomePage() {
                     >
                         <Logo />
                         <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setShowDemoVideo(true)}
+                                className="relative px-4 py-2.5 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-red-500/40 transition-all cursor-pointer transform hover:-translate-y-0.5 flex items-center gap-2"
+                            >
+                                {/* Pulsing glow ring */}
+                                <span className="absolute -inset-1 rounded-2xl bg-red-400 opacity-0 animate-pulse" style={{ animationDuration: '2s' }}></span>
+                                {/* Pulsing dot */}
+                                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-400 border border-white"></span>
+                                </span>
+                                <FaVideo className="relative z-10 text-xs" />
+                                <span className="relative z-10">Exam Instruction</span>
+                            </button>
                             <div className="flex items-center gap-2 text-slate-500 text-sm font-medium">
                                 <LuShieldCheck className="text-emerald-500" />
                                 <span className="hidden sm:inline">Secure Platform</span>

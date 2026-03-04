@@ -15,6 +15,8 @@ import {
     FaUser,
     FaCheckCircle,
     FaLock,
+    FaVideo,
+    FaTimes,
 } from "react-icons/fa";
 import { studentsAPI } from "@/lib/api";
 import Logo from "@/components/Logo";
@@ -29,9 +31,7 @@ export default function ExamSelectionPage() {
     const [error, setError] = useState("");
     const [completedModules, setCompletedModules] = useState([]);
     const [moduleScores, setModuleScores] = useState(null);
-
-
-
+    const [showDemoVideo, setShowDemoVideo] = useState(false);
     useEffect(() => {
         const loadSessionAndVerify = async () => {
             const storedSession = localStorage.getItem("examSession");
@@ -195,6 +195,11 @@ export default function ExamSelectionPage() {
     };
 
     const handleStartFullExam = () => {
+        setShowDemoVideo(true);
+    };
+
+    const proceedToFullExam = () => {
+        setShowDemoVideo(false);
         router.push(`/exam/${sessionId}/full`);
     };
 
@@ -205,6 +210,12 @@ export default function ExamSelectionPage() {
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
                     <Logo />
                     <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setShowDemoVideo(true)}
+                            className="flex items-center gap-1.5 bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-md text-xs font-medium hover:bg-red-100 transition-colors cursor-pointer"
+                        >
+                            <FaVideo className="text-xs" /> Exam Instruction
+                        </button>
                         <div className="flex items-center gap-1.5 text-gray-600 text-sm">
                             <FaUser className="text-cyan-600 text-xs" />
                             <span>{session?.studentName || "Student"}</span>
@@ -215,6 +226,53 @@ export default function ExamSelectionPage() {
                     </div>
                 </div>
             </header>
+
+            {/* Demo Video Modal */}
+            {showDemoVideo && (
+                <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl w-full max-w-3xl shadow-2xl overflow-hidden">
+                        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+                            <div className="flex items-center gap-2">
+                                <FaVideo className="text-red-500" />
+                                <h3 className="font-semibold text-gray-800 text-sm">Exam Instruction — How It Works</h3>
+                            </div>
+                            <button
+                                onClick={() => setShowDemoVideo(false)}
+                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                            >
+                                <FaTimes />
+                            </button>
+                        </div>
+                        <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                            <iframe
+                                className="absolute inset-0 w-full h-full"
+                                src="https://www.youtube.com/embed/3SUAfSU0VNo?autoplay=1&rel=0"
+                                title="IELTS Exam Demo"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                            />
+                        </div>
+                        <div className="px-5 py-3 bg-gray-50 flex items-center justify-between">
+                            <p className="text-gray-500 text-xs">Watch this video to understand how the exam works</p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setShowDemoVideo(false)}
+                                    className="px-4 py-1.5 bg-white text-gray-700 border border-gray-300 text-xs font-medium rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                                >
+                                    Close
+                                </button>
+                                <button
+                                    onClick={proceedToFullExam}
+                                    className="px-4 py-1.5 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                                >
+                                    Start Full Exam <FaArrowRight className="text-[10px]" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="max-w-4xl mx-auto px-4 py-8">
                 {(() => {
