@@ -748,21 +748,18 @@ function StudentContent() {
     const [editModal, setEditModal] = useState({ show: false });
 
     // Fetch student data
+    const fetchStudent = async () => {
+        try {
+            const response = await studentsAPI.getById(params.id);
+            if (response.success) setStudent(response.data);
+        } catch (error) {
+            console.error("Failed to fetch student:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchStudent = async () => {
-            try {
-                const response = await studentsAPI.getById(params.id);
-                console.log("=== Student Data Fetched ===");
-                console.log("Full response:", response);
-                console.log("Student examAnswers:", response?.data?.examAnswers);
-                console.log("Student writing:", response?.data?.examAnswers?.writing);
-                if (response.success) setStudent(response.data);
-            } catch (error) {
-                console.error("Failed to fetch student:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchStudent();
     }, [params.id]);
 
@@ -848,7 +845,8 @@ function StudentContent() {
         try {
             const response = await studentsAPI.resetModule(params.id, module);
             if (response.success) {
-                setStudent(response.data);
+                // Refetch full student data to ensure complete state
+                await fetchStudent();
                 alert(`✅ ${module} module reset successfully! The student can now retake this module.`);
             }
         } catch (error) {

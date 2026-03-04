@@ -21,11 +21,6 @@ const menuItems = [
         href: "/dashboard/student",
     },
     {
-        title: "My Exam",
-        icon: FaClipboardList,
-        href: "/dashboard/student/exam",
-    },
-    {
         title: "Results",
         icon: FaChartBar,
         href: "/dashboard/student/results",
@@ -67,7 +62,7 @@ function StudentLayoutContent({ children }) {
         try {
             const parsedUser = JSON.parse(user);
             // Admin should go to admin dashboard
-            if (parsedUser.role === "admin") {
+            if (parsedUser.role === "admin" || parsedUser.role === "super-admin") {
                 router.push("/dashboard/admin/dashboard");
                 return;
             }

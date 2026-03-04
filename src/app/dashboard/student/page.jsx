@@ -220,18 +220,11 @@ export default function StudentDashboard() {
                             <h3 className="font-medium text-gray-800">Exam Progress</h3>
                             <p className="text-xs text-gray-500 mt-0.5">Track your module completion</p>
                         </div>
-                        {!isAllCompleted && paymentStatus === "paid" ? (
-                            <button
-                                onClick={handleStartExam}
-                                className="bg-cyan-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-cyan-700 transition-colors flex items-center gap-2"
-                            >
-                                Continue Exam <FaArrowRight size={12} />
-                            </button>
-                        ) : isAllCompleted ? (
+                        {isAllCompleted && (
                             <span className="bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5">
                                 <FaCheckCircle size={12} /> Completed
                             </span>
-                        ) : null}
+                        )}
                     </div>
 
                     {/* Progress Bar */}
@@ -401,17 +394,14 @@ export default function StudentDashboard() {
                                 <FaClipboardList className="text-gray-500 text-lg" />
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-medium text-gray-800">Start Your Exam</h3>
+                                <h3 className="font-medium text-gray-800">Exam Not Started</h3>
                                 <p className="text-gray-500 text-sm mt-0.5">
-                                    Your exam is scheduled for {formatExamDate(examDate)}.
+                                    Your exam is scheduled for {formatExamDate(examDate)}. Use your Exam ID on the homepage to start the exam.
                                 </p>
                             </div>
-                            <button
-                                onClick={handleStartExam}
-                                className="bg-cyan-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-cyan-700 transition-colors"
-                            >
-                                Start Exam
-                            </button>
+                            <span className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded-md text-xs font-medium">
+                                Upcoming
+                            </span>
                         </div>
                     </div>
                 )}
