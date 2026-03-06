@@ -887,6 +887,7 @@ export default function ListeningExamPage() {
                         <span style={{ fontWeight: '900', color: '#cc0000', fontSize: '32px', letterSpacing: '-0.5px', fontFamily: 'Arial, sans-serif' }}>IELTS</span>
                         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
                             <span style={{ fontSize: '16px', fontWeight: '600', color: cs.text }}>Test taker ID</span>
+                            <span style={{ fontSize: '13px', color: contrastMode === 'black-on-white' ? '#6b7280' : cs.text }}>{Math.floor(timeLeft / 60)} minutes remaining</span>
                         </div>
                     </div>
                     {/* Right: WiFi + Bell + Menu icons */}

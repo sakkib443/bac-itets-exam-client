@@ -32,6 +32,7 @@ export default function ExamSelectionPage() {
     const [completedModules, setCompletedModules] = useState([]);
     const [moduleScores, setModuleScores] = useState(null);
     const [showDemoVideo, setShowDemoVideo] = useState(false);
+    const [showModuleVideo, setShowModuleVideo] = useState(null); // { moduleId, setNumber }
     useEffect(() => {
         const loadSessionAndVerify = async () => {
             const storedSession = localStorage.getItem("examSession");
@@ -138,6 +139,13 @@ export default function ExamSelectionPage() {
         return [];
     };
 
+    // Video timestamps for each module (from YouTube: 3SUAfSU0VNo)
+    const VIDEO_TIMESTAMPS = {
+        listening: { start: 173, end: 277, label: 'Listening' },
+        reading: { start: 277, end: 405, label: 'Reading' },
+        writing: { start: 405, end: 474, label: 'Writing' },
+    };
+
     // Exam modules configuration
     const examModules = [
         {
@@ -184,6 +192,13 @@ export default function ExamSelectionPage() {
 
 
     const handleStartModule = (moduleId, setNumber) => {
+        // Show module-specific instruction video before navigating
+        setShowModuleVideo({ moduleId, setNumber });
+    };
+
+    const proceedToModule = () => {
+        if (!showModuleVideo) return;
+        const { moduleId, setNumber } = showModuleVideo;
         // Store which set number to use
         if (setNumber != null) {
             const sessionData = JSON.parse(localStorage.getItem("examSession") || "{}");
@@ -191,6 +206,7 @@ export default function ExamSelectionPage() {
             sessionData.currentModule = moduleId;
             localStorage.setItem("examSession", JSON.stringify(sessionData));
         }
+        setShowModuleVideo(null);
         router.push(`/exam/${sessionId}/${moduleId}`);
     };
 
@@ -246,7 +262,7 @@ export default function ExamSelectionPage() {
                         <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
                             <iframe
                                 className="absolute inset-0 w-full h-full"
-                                src="https://www.youtube.com/embed/3SUAfSU0VNo?autoplay=1&rel=0"
+                                src="https://www.youtube.com/embed/4_dCncUPBO4?autoplay=1&rel=0"
                                 title="IELTS Exam Demo"
                                 frameBorder="0"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -273,6 +289,57 @@ export default function ExamSelectionPage() {
                     </div>
                 </div>
             )}
+
+            {/* Module-specific Instruction Video Modal */}
+            {showModuleVideo && (() => {
+                const ts = VIDEO_TIMESTAMPS[showModuleVideo.moduleId];
+                const videoUrl = `https://www.youtube.com/embed/3SUAfSU0VNo?autoplay=1&rel=0&start=${ts.start}&end=${ts.end}`;
+                return (
+                    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-xl w-full max-w-3xl shadow-2xl overflow-hidden">
+                            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+                                <div className="flex items-center gap-2">
+                                    <FaVideo className="text-red-500" />
+                                    <h3 className="font-semibold text-gray-800 text-sm">{ts.label} Instruction</h3>
+                                </div>
+                                <button
+                                    onClick={() => setShowModuleVideo(null)}
+                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                                >
+                                    <FaTimes />
+                                </button>
+                            </div>
+                            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                                <iframe
+                                    className="absolute inset-0 w-full h-full"
+                                    src={videoUrl}
+                                    title={`${ts.label} Instruction`}
+                                    frameBorder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                />
+                            </div>
+                            <div className="px-5 py-3 bg-gray-50 flex items-center justify-between">
+                                <p className="text-gray-500 text-xs">Watch the {ts.label.toLowerCase()} instruction before starting</p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={proceedToModule}
+                                        className="px-4 py-1.5 bg-white text-gray-700 border border-gray-300 text-xs font-medium rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                                    >
+                                        Skip
+                                    </button>
+                                    <button
+                                        onClick={proceedToModule}
+                                        className="px-4 py-1.5 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                                    >
+                                        Continue <FaArrowRight className="text-[10px]" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             <div className="max-w-4xl mx-auto px-4 py-8">
                 {(() => {
